@@ -1,0 +1,21 @@
+#!/bin/bash
+
+dir="$1"
+snapshots=($(./snapshot_sync)) # TODO Probably read from cache file
+# echo ${snapshots[@]}
+echo ${snapshots[0]}
+
+i=0
+for snapshot in ${snapshots[@]} ; do
+  echo $snapshot
+
+  # new snapshot
+  if [ ! -d "$dir/$snapshot" ] ; then
+    mkdir "$dir/$snapshot"
+    # if not previous, special first time case
+  fi
+
+  # TODO Cleanup case
+
+  ((i++))
+done

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+SNAPSHOT_DIR=".snapshot"
+SNAPSHOT_AGE_MAX=100
+TODAY=$(date +%Y%m%d)
+
+# TODO Probably end up just snapshoting /iso directory and can read changes from
+# that location. Having older ISOs since those break would be nice as well.
+# Could also limit this to last month since they should never change.
+# ./downloadz http://download.opensuse.org/tumbleweed/iso/?P=Changes.*.txt "$SNAPSHOT_DIR"
+
+# snapshots=(find "$SNAPSHOT_DIR" -name "Changes.*.txt" | grep -oP "\d+" | sort)
+# snapshots=()
+for snapshot in $(find "$SNAPSHOT_DIR" -name "Changes.*.txt" | grep -oP "\d+" | sort -r) ; do
+  if [ $(( $TODAY - $snapshot )) -gt $SNAPSHOT_AGE_MAX ] ; then
+    break
+  fi
+#   snapshots+=($snapshot)
+  echo $snapshot
+done
+
+# echo ${snapshots[@]}
