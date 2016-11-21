@@ -14,6 +14,6 @@ wget \
   --no-parent \
   --no-host-directories \
   --cut-dirs "$cut" \
-  --reject mirrorlist,html,robots.txt \
-  --reject-regex '(.*)\?(.*)' \
+  --reject mirrorlist,html \
+  --reject-regex '(.*)\?(.*)|(.*)robots.txt' \
   "$url"
