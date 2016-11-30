@@ -1,21 +1,60 @@
 #!/bin/bash
 
-dir="$1"
+REPO="$1"
+SNAPSHOT_DIR=$(realpath "$REPO/../$(basename "$REPO")_snapshot")
 snapshots=($(./snapshot_sync dump))
-# echo ${snapshots[@]}
-echo ${snapshots[0]}
 
+if [ ! -d "$SNAPSHOT_DIR" ] ; then
+  # first time snapshotting repo
+
+#   echo ${snapshots[0]}
+  mkdir "$SNAPSHOT_DIR"
+#   exit
+fi
+
+# latest snapshot always symlink to current repo
+if [ ! -e "$SNAPSHOT_DIR/${snapshots[0]}" ] ; then
+  ln -s "../$(basename "$REPO")" "$SNAPSHOT_DIR/${snapshots[0]}"
+fi
+echo "${snapshots[0]}: linked to current"
+
+cd "$REPO"
 i=0
+snapshots=(${snapshots[@]:1})
+# for snapshot in ${snapshots[@]:1} ; do
 for snapshot in ${snapshots[@]} ; do
+  snapshot_older=${snapshots[$i+1]}
+#   echo -n $snapshot
   echo $snapshot
+#   echo "-> $snapshot_older"
 
-  # new snapshot
-  if [ ! -d "$dir/$snapshot" ] ; then
-    mkdir "$dir/$snapshot"
-    # if not previous, special first time case
+#   local dir="$SNAPSHOT_DIR/$snapshot"
+  dir="$SNAPSHOT_DIR/$snapshot"
+#   continue
+
+  if [ -L "$dir" ] ; then
+    # previous latest
+    rm "$dir"
+    mkdir "$dir"
+
+#     find "$REPO" | while read file ; do
+    find . ! -path . | cut -sd / -f 2- |  while read file ; do
+      echo $file
+      if [ -d "$file" ] ; then
+        mkdir -p "$dir/$file"
+      else
+        echo "$SNAPSHOT_DIR/$snapshot_older/$file"
+        if [ -e "$SNAPSHOT_DIR/$snapshot_older/$file" ] || [ -L "$SNAPSHOT_DIR/$snapshot_older/$file" ]; then
+          # TODO Get rid of ./ prefix
+          ln -s "../$snapshot_older/$file" "$dir/$file"
+        else
+          cp -p "$file" "$dir/$file"
+        fi
+      fi
+    done
   fi
-
-  # TODO Cleanup case
 
   ((i++))
 done
+
+# TODO Cleanup case
