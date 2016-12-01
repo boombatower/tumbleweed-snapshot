@@ -187,7 +187,8 @@ if [ "$release" != "$snapshot_latest" ] ; then
   snapshot_create
 fi
 
-# sync "include-tumbleweed"
+# keep tree in sync
+sync "include-tumbleweed"
 
 # if sync "include-tumbleweed-changes" | grep ">f+++++++++" ; then
 #   echo "new snapshot via rsync, updating snapshot list..."
