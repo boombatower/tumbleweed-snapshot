@@ -1,0 +1,13 @@
++ /tumbleweed/
++ /tumbleweed/***
+- /tumbleweed/snapshot/
+
++ /debug/
++ /debug/tumbleweed/
++ /debug/tumbleweed/***
+
++ /source/
++ /source/tumbleweed/
++ /source/tumbleweed/***
+
+- *

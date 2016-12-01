@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# SYNC_DIR=/srv/www/htdocs/
+SYNC_DIR="/srv/www/htdocs/opensuse"
+# SNAPSHOT_DIR=/srv/www/htdocs/snapshot/
+SNAPSHOT_DIR="$SYNC_DIR/tumbleweed/snapshot"
+SNAPSHOT_AGE_MAX=100
+
+sync()
+{
+# rsync -rlpt rsync.opensuse.org::opensuse-full-with-factory "$SYNC_DIR" --delete-after -hi --stats --include-from ./rsync/include-tumbleweed-iso.txt
+#   --recursive
+#   --itemize-changes
+#   --stats
+#   --include-from
+#   rsync \
+#     --recursive \
+#     --links \
+#     --times \
+#     --delete \
+#     --itemize-changes \
+  rsync \
+    --archive \
+    --itemize-changes \
+    --include-from "./rsync/$1.txt" \
+    suse.mobile-central.org::opensuse \
+    "$SYNC_DIR/"
+#     rsync.opensuse.org::opensuse-full-with-factory \
+}
+
+snapshot_list()
+{
+#   SNAPSHOT_DIR=".snapshot"
+#   SNAPSHOT_AGE_MAX=100
+  local ISO_DIR="$SYNC_DIR/tumbleweed/iso"
+  local TODAY=$(date +%Y%m%d)
+  local MONTH=$(date +%Y%m)
+  local snapshots=()
+
+  echo -n > "$SNAPSHOT_DIR/list"
+  for snapshot in $(find "$ISO_DIR" -name "Changes.*.txt" | grep -oP "\d+" | sort -r) ; do
+    if [ $(( $TODAY - $snapshot )) -gt $SNAPSHOT_AGE_MAX ] ; then
+      break
+    fi
+#     echo $snapshot | tee -a "$SNAPSHOT_DIR/list"
+    snapshots+=($snapshot)
+  done
+
+  # append snapshot_latest and remove duplicates to be sure
+  if [ "${snapshots[0]}" != "$snapshot_latest" ] ; then
+    echo "latest snapshot not included in ISO list as expect and thus it will be added"
+    snapshots=("$snapshot_latest" ${snapshots[@]})
+  fi
+#   snapshots+=($snapshot_latest)
+# #   echo $snapshot_latest | tee -a "$SNAPSHOT_DIR/list"
+#   sort -u "$SNAPSHOT_DIR/list" > /dev/null
+#   awk '!a[$0]++' "$SNAPSHOT_DIR/list"
+
+  echo "${#snapshots[@]} snapshots of interest"
+#   echo "${snapshots[@]}"
+  printf '%s\n' "${snapshots[@]}" > "$SNAPSHOT_DIR/list"
+#   "${snapshots[@]}" > "$SNAPSHOT_DIR/list"
+}
+
+# sync "include-tumbleweed-changes"
+# sync "include-tumbleweed"
+# exit
+
+if [ ! -d "$SNAPSHOT_DIR" ] ; then
+  mkdir "$SNAPSHOT_DIR"
+fi
+
+
+# rsync check repeatedly until snapshot is udated then snapshot all repos.
+release=$(osc list -b openSUSE:Factory _product:openSUSE-release snapshot x86_64 | \
+  grep -oP "openSUSE-release-\K([^-]+)(?=-[^-]+\.src\.rpm)")
+# echo $release
+
+if [ ! -f "$SNAPSHOT_DIR/latest" ] ; then
+  echo "0" > "$SNAPSHOT_DIR/latest"
+fi
+
+snapshot_latest=$(cat "$SNAPSHOT_DIR/latest")
+if [ "$release" != "$snapshot_latest" ] ; then
+  echo "new snapshot $release published on OBS"
+  # add new snapshot to list and process
+  echo "$release" > "$SNAPSHOT_DIR/latest"
+  snapshot_latest="$release"
+  snapshot_list
+  # TODO
+fi
+
+exit
+
+if sync "include-tumbleweed-changes" | grep ">f+++++++++" ; then
+  echo "new snapshot via rsync, updating snapshot list..."
+  snapshot_list
+fi

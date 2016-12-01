@@ -1,0 +1,5 @@
++ /tumbleweed/
++ /tumbleweed/iso/
++ /tumbleweed/iso/Changes.*.txt
+
+- *
