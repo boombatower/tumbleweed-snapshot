@@ -1,6 +1,5 @@
 + /tumbleweed/
 + /tumbleweed/***
-- /tumbleweed/snapshot/
 
 + /debug/
 + /debug/tumbleweed/

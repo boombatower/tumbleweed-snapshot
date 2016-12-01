@@ -2,8 +2,8 @@
 
 # SYNC_DIR=/srv/www/htdocs/
 SYNC_DIR="/srv/www/htdocs/opensuse"
-# SNAPSHOT_DIR=/srv/www/htdocs/snapshot/
-SNAPSHOT_DIR="$SYNC_DIR/tumbleweed/snapshot"
+SNAPSHOT_DIR="/srv/www/htdocs/snapshot"
+# SNAPSHOT_DIR="$SYNC_DIR/tumbleweed/snapshot"
 SNAPSHOT_AGE_MAX=100
 
 sync()
@@ -35,7 +35,8 @@ snapshot_list()
   local ISO_DIR="$SYNC_DIR/tumbleweed/iso"
   local TODAY=$(date +%Y%m%d)
   local MONTH=$(date +%Y%m)
-  local snapshots=()
+#   local snapshots=()
+  snapshots=()
 
   echo -n > "$SNAPSHOT_DIR/list"
   for snapshot in $(find "$ISO_DIR" -name "Changes.*.txt" | grep -oP "\d+" | sort -r) ; do
@@ -50,6 +51,7 @@ snapshot_list()
   if [ "${snapshots[0]}" != "$snapshot_latest" ] ; then
     echo "latest snapshot not included in ISO list as expect and thus it will be added"
     snapshots=("$snapshot_latest" ${snapshots[@]})
+#     snapshots=("$snapshot_latest" "20161129" ${snapshots[@]}) # TODO
   fi
 #   snapshots+=($snapshot_latest)
 # #   echo $snapshot_latest | tee -a "$SNAPSHOT_DIR/list"
@@ -60,6 +62,100 @@ snapshot_list()
 #   echo "${snapshots[@]}"
   printf '%s\n' "${snapshots[@]}" > "$SNAPSHOT_DIR/list"
 #   "${snapshots[@]}" > "$SNAPSHOT_DIR/list"
+}
+
+snapshot_create()
+{
+#   REPO="$1"
+#   SNAPSHOT_DIR=$(realpath "$REPO/../$(basename "$REPO")_snapshot")
+#   snapshots=($(./snapshot_sync dump))
+# 
+#   if [ ! -d "$SNAPSHOT_DIR" ] ; then
+#     # first time snapshotting repo
+# 
+#   #   echo ${snapshots[0]}
+#     mkdir "$SNAPSHOT_DIR"
+#   #   exit
+#   fi
+
+  # latest snapshot always symlink to current repo
+  if [ ! -e "$SNAPSHOT_DIR/${snapshots[0]}" ] ; then
+    ln -s "../$(basename "$SYNC_DIR")" "$SNAPSHOT_DIR/${snapshots[0]}"
+  fi
+  echo "${snapshots[0]}: linked to current"
+
+#   local SYNC_DIR="$SYNC_DIR/tumbleweed/repo/oss/media.1" # TODO
+#   cd "$REPO"
+  cd "$SYNC_DIR"
+  i=0
+  snapshots=(${snapshots[@]:1})
+  # for snapshot in ${snapshots[@]:1} ; do
+  for snapshot in ${snapshots[@]} ; do
+    snapshot_older=${snapshots[$i+1]}
+  #   echo -n $snapshot
+    echo -n $snapshot
+  #   echo "-> $snapshot_older"
+
+  #   local dir="$SNAPSHOT_DIR/$snapshot"
+    dir="$SNAPSHOT_DIR/$snapshot"
+  #   continue
+
+    if [ -L "$dir" ] ; then
+      echo ": snapshotted"
+      # previous latest
+      rm "$dir"
+      mkdir "$dir"
+
+      # TODO Note about rsync seemingly doing everything except symlink instead of hardlink
+  #     find "$REPO" | while read file ; do
+      find . ! -path . | cut -sd / -f 2- |  while read file ; do
+#         echo $file
+        if [ -d "$file" ] ; then
+          mkdir -p "$dir/$file"
+        else
+#           echo "$SNAPSHOT_DIR/$snapshot_older/$file"
+          # TODO and the timestamp is the same
+          # not sure if rpms that are the same recieve updated modification time
+          if [[ ( -e "$SNAPSHOT_DIR/$snapshot_older/$file" || -L "$SNAPSHOT_DIR/$snapshot_older/$file" ) &&
+              ! "$file" -nt "$SNAPSHOT_DIR/$snapshot_older/$file" ]] ; then
+            # TODO Get rid of ./ prefix
+            ln -s "../$snapshot_older/$file" "$dir/$file"
+          else
+            cp -p "$file" "$dir/$file"
+          fi
+        fi
+      done
+    elif [ -d "$dir" ] ; then
+      echo ": exists"
+    else
+      echo ": missing"
+    fi
+
+    ((i++))
+  done
+
+  cd - > /dev/null
+
+  # TODO Cleanup case
+  # pick last real one in list and replace all symlinks with real files
+  local snapshot_last=${snapshots[$i-1]}
+#   snapshot_last="20161129" # TODO
+  if [ -d "$SNAPSHOT_DIR/$snapshot_last" ] ; then
+    for link in $(find "$SNAPSHOT_DIR/$snapshot_last" -type l) ; do
+      dir="$(dirname "$link")"
+      real="$(readlink -e "$link")"
+      rm "$link"
+      mv "$real" "$dir"
+    done
+
+    # TODO Remove all old snapshot dirs
+    for f in "$SNAPSHOT_DIR"/* ; do
+      if [ -d "$f" ] && [ $(basename "$f") -lt $snapshot_last ] ; then
+        echo "$(basename "$f"): removed"
+        rm -rf "$f"
+      fi
+    done
+  fi
 }
 
 # sync "include-tumbleweed-changes"
@@ -74,6 +170,7 @@ fi
 # rsync check repeatedly until snapshot is udated then snapshot all repos.
 release=$(osc list -b openSUSE:Factory _product:openSUSE-release snapshot x86_64 | \
   grep -oP "openSUSE-release-\K([^-]+)(?=-[^-]+\.src\.rpm)")
+# release="20161130" # TODO
 # echo $release
 
 if [ ! -f "$SNAPSHOT_DIR/latest" ] ; then
@@ -87,12 +184,12 @@ if [ "$release" != "$snapshot_latest" ] ; then
   echo "$release" > "$SNAPSHOT_DIR/latest"
   snapshot_latest="$release"
   snapshot_list
-  # TODO
+  snapshot_create
 fi
 
-exit
+# sync "include-tumbleweed"
 
-if sync "include-tumbleweed-changes" | grep ">f+++++++++" ; then
-  echo "new snapshot via rsync, updating snapshot list..."
-  snapshot_list
-fi
+# if sync "include-tumbleweed-changes" | grep ">f+++++++++" ; then
+#   echo "new snapshot via rsync, updating snapshot list..."
+#   snapshot_list
+# fi
