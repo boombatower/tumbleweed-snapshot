@@ -1,0 +1,3 @@
+# Placed in sync directory to redirect request for current snapshot resources to
+# main mirror network and thus only server request for older snapshots.
+RedirectMatch "^/\d+/(.*)" "http://download.opensuse.org/$1"
