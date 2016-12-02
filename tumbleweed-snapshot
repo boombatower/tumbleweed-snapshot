@@ -167,10 +167,11 @@ release=$(osc list -b openSUSE:Factory _product:openSUSE-release snapshot x86_64
 # echo $release
 
 if [ ! -f "$SNAPSHOT_DIR/latest" ] ; then
-  echo "0" > "$SNAPSHOT_DIR/latest"
+  snapshot_latest=0
+else
+  snapshot_latest=$(cat "$SNAPSHOT_DIR/latest")
 fi
 
-snapshot_latest=$(cat "$SNAPSHOT_DIR/latest")
 if [ "$release" != "$snapshot_latest" ] ; then
   echo "new snapshot $release published on OBS"
   # add new snapshot to list and process
