@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 
 SCRIPT="$(cd "${0%/*}" && echo "$PWD")/${0##*/}"
-# SYNC_DIR=/srv/www/htdocs/
 SYNC_DIR="/srv/www/htdocs/opensuse"
 SNAPSHOT_DIR="/srv/www/htdocs/snapshot"
-# SNAPSHOT_DIR="$SYNC_DIR/tumbleweed/snapshot"
 SNAPSHOT_AGE_MAX=100
 
 sync()
@@ -19,100 +17,80 @@ sync()
     --include-from "$(dirname $SCRIPT)/rsync/$1.txt" \
     suse.mobile-central.org::opensuse \
     "$SYNC_DIR/"
-#     rsync.opensuse.org::opensuse-full-with-factory \
+#     rsync.opensuse.org::opensuse-full-with-factory/opensuse/ \
 }
 
 snapshot_list()
 {
-#   SNAPSHOT_DIR=".snapshot"
-#   SNAPSHOT_AGE_MAX=100
   local ISO_DIR="$SYNC_DIR/tumbleweed/iso"
   local TODAY=$(date +%Y%m%d)
   local MONTH=$(date +%Y%m)
-#   local snapshots=()
   snapshots=()
 
-  echo -n > "$SNAPSHOT_DIR/list"
   for snapshot in $(find "$ISO_DIR" -name "Changes.*.txt" | grep -oP "\d+" | sort -r) ; do
+    # Changes files are sorted largest to smallest so once a snapshot is
+    # encountered that is older than AGE_MAX stop looping.
     if [ $(( $TODAY - $snapshot )) -gt $SNAPSHOT_AGE_MAX ] ; then
       break
     fi
-#     echo $snapshot | tee -a "$SNAPSHOT_DIR/list"
     snapshots+=($snapshot)
   done
 
-  # append snapshot_latest and remove duplicates to be sure
+  # Append snapshot_latest if not already included. This should always occur
+  # since OBS should publish before rsync updates the iso directory.
   if [ "${snapshots[0]}" != "$snapshot_latest" ] ; then
     echo "latest snapshot not included in ISO list as expect and thus it will be added"
     snapshots=("$snapshot_latest" ${snapshots[@]})
-#     snapshots=("$snapshot_latest" "20161129" ${snapshots[@]}) # TODO
   fi
-#   snapshots+=($snapshot_latest)
-# #   echo $snapshot_latest | tee -a "$SNAPSHOT_DIR/list"
-#   sort -u "$SNAPSHOT_DIR/list" > /dev/null
-#   awk '!a[$0]++' "$SNAPSHOT_DIR/list"
 
   echo "${#snapshots[@]} snapshots of interest"
-#   echo "${snapshots[@]}"
   printf '%s\n' "${snapshots[@]}" > "$SNAPSHOT_DIR/list"
-#   "${snapshots[@]}" > "$SNAPSHOT_DIR/list"
 }
 
 snapshot_create()
 {
-#   REPO="$1"
-#   SNAPSHOT_DIR=$(realpath "$REPO/../$(basename "$REPO")_snapshot")
-#   snapshots=($(./snapshot_sync dump))
-# 
-#   if [ ! -d "$SNAPSHOT_DIR" ] ; then
-#     # first time snapshotting repo
-# 
-#   #   echo ${snapshots[0]}
-#     mkdir "$SNAPSHOT_DIR"
-#   #   exit
-#   fi
-
-  # latest snapshot always symlink to current repo
+  # Always symlink latest snapshot to SYNC_DIR.
   if [ ! -e "$SNAPSHOT_DIR/${snapshots[0]}" ] ; then
     ln -s "../$(basename "$SYNC_DIR")" "$SNAPSHOT_DIR/${snapshots[0]}"
   fi
   echo "${snapshots[0]}: linked to current"
 
-#   local SYNC_DIR="$SYNC_DIR/tumbleweed/repo/oss/media.1" # TODO
-#   cd "$REPO"
   cd "$SYNC_DIR"
-  i=0
-  snapshots=(${snapshots[@]:1})
-  # for snapshot in ${snapshots[@]:1} ; do
+  local i=0
+  local snapshots=(${snapshots[@]:1}) # remove latest snapshot since already handled
   for snapshot in ${snapshots[@]} ; do
-    snapshot_older=${snapshots[$i+1]}
-  #   echo -n $snapshot
     echo -n $snapshot
-  #   echo "-> $snapshot_older"
 
-  #   local dir="$SNAPSHOT_DIR/$snapshot"
-    dir="$SNAPSHOT_DIR/$snapshot"
-  #   continue
+    local snapshot_older=${snapshots[$i+1]}
+    local dir="$SNAPSHOT_DIR/$snapshot"
 
     if [ -L "$dir" ] ; then
+      # Symlink indicates it was pointing to latest and should be snapshotted.
       echo ": snapshotted"
-      # previous latest
       rm "$dir"
       mkdir "$dir"
 
-      # TODO Note about rsync seemingly doing everything except symlink instead of hardlink
-  #     find "$REPO" | while read file ; do
+      # Mirror the directory structure while symlinking any files that are
+      # present in previous snapshot dir and do not have a newer modification
+      # time. After looking at various tools and methods none seem to generate
+      # the desired structure. Rsync can come close by generating the same
+      # structure, but with hardlinks. Given hardlinks are cumbersome to mirror
+      # and it is not too difficult to write it seemed reasonable to do so.
+      # Additionally, symlinks will make it easier to collect statistics on
+      # snapshot size and exact number of packages that differ.
+
+      # Cut removes the beginning ./ from paths.
       find . ! -path . | cut -sd / -f 2- |  while read file ; do
-#         echo $file
         if [ -d "$file" ] ; then
           mkdir -p "$dir/$file"
         else
-#           echo "$SNAPSHOT_DIR/$snapshot_older/$file"
-          # TODO and the timestamp is the same
-          # not sure if rpms that are the same recieve updated modification time
+          # Not sure if rebuilds that produce the same rpm have modification
+          # time updated. If so then it probably makes sense to special case
+          # rpms by copying modification time and assuming the same file name
+          # indicates the same contents to avoid an expensive compare.
+          # -e does not include symlinks so a two part "exists" is used.
           if [[ ( -e "$SNAPSHOT_DIR/$snapshot_older/$file" || -L "$SNAPSHOT_DIR/$snapshot_older/$file" ) &&
               ! "$file" -nt "$SNAPSHOT_DIR/$snapshot_older/$file" ]] ; then
-            # TODO Get rid of ./ prefix
             ln -s "../$snapshot_older/$file" "$dir/$file"
           else
             cp -p "$file" "$dir/$file"
@@ -130,10 +108,9 @@ snapshot_create()
 
   cd - > /dev/null
 
-  # TODO Cleanup case
-  # pick last real one in list and replace all symlinks with real files
+  # Cleaned up snapshots that are older than the max age. Pick the last
+  # supported snapshot from the list and replace all symlinks with real files.
   local snapshot_last=${snapshots[$i-1]}
-#   snapshot_last="20161129" # TODO
   if [ -d "$SNAPSHOT_DIR/$snapshot_last" ] ; then
     for link in $(find "$SNAPSHOT_DIR/$snapshot_last" -type l) ; do
       dir="$(dirname "$link")"
@@ -142,7 +119,8 @@ snapshot_create()
       mv "$real" "$dir"
     done
 
-    # TODO Remove all old snapshot dirs
+    # Remove all old snapshot directories since they should no longer be
+    # referenced after the symlink cleanup.
     for f in "$SNAPSHOT_DIR"/* ; do
       if [ -d "$f" ] && [ $(basename "$f") -lt $snapshot_last ] ; then
         echo "$(basename "$f"): removed"
@@ -152,20 +130,19 @@ snapshot_create()
   fi
 }
 
-# sync "include-tumbleweed-changes"
-# sync "include-tumbleweed"
-# exit
-
 if [ ! -d "$SNAPSHOT_DIR" ] ; then
   mkdir "$SNAPSHOT_DIR"
 fi
 
-
-# rsync check repeatedly until snapshot is udated then snapshot all repos.
+# Check openSUSE:Factory/snapshot for the current openSUSE-release package
+# version. This should be the earliest indicator that a snapshot has been
+# released. Given that rysnc will not immediately have all files available it
+# seems like the most reliable method rather than rysncing just the iso/Changes*
+# files. Tumbleweed should publish once a snapshot so the already sync'd files
+# should represent the previous snapshot and non-factory repositories may begin
+# rebuilding once the snapshot repository has updated.
 release=$(osc list -b openSUSE:Factory _product:openSUSE-release snapshot x86_64 | \
   grep -oP "openSUSE-release-\K([^-]+)(?=-[^-]+\.src\.rpm)")
-# release="20161130" # TODO
-# echo $release
 
 if [ ! -f "$SNAPSHOT_DIR/latest" ] ; then
   snapshot_latest=0
@@ -175,17 +152,11 @@ fi
 
 if [ "$release" != "$snapshot_latest" ] ; then
   echo "new snapshot $release published on OBS"
-  # add new snapshot to list and process
   echo "$release" > "$SNAPSHOT_DIR/latest"
   snapshot_latest="$release"
   snapshot_list
   snapshot_create
 fi
 
-# keep tree in sync
+# Since the script should be called repeatedly this should eventually complete.
 sync "include-tumbleweed"
-
-# if sync "include-tumbleweed-changes" | grep ">f+++++++++" ; then
-#   echo "new snapshot via rsync, updating snapshot list..."
-#   snapshot_list
-# fi
