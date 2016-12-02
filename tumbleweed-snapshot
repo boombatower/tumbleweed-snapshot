@@ -15,6 +15,7 @@ sync()
     --times \
     --delete \
     --itemize-changes \
+    --no-motd \
     --include-from "$(dirname $SCRIPT)/rsync/$1.txt" \
     suse.mobile-central.org::opensuse \
     "$SYNC_DIR/"
