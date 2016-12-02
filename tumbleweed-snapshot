@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+SCRIPT="$(cd "${0%/*}" && echo "$PWD")/${0##*/}"
 # SYNC_DIR=/srv/www/htdocs/
 SYNC_DIR="/srv/www/htdocs/opensuse"
 SNAPSHOT_DIR="/srv/www/htdocs/snapshot"
@@ -8,21 +9,13 @@ SNAPSHOT_AGE_MAX=100
 
 sync()
 {
-# rsync -rlpt rsync.opensuse.org::opensuse-full-with-factory "$SYNC_DIR" --delete-after -hi --stats --include-from ./rsync/include-tumbleweed-iso.txt
-#   --recursive
-#   --itemize-changes
-#   --stats
-#   --include-from
-#   rsync \
-#     --recursive \
-#     --links \
-#     --times \
-#     --delete \
-#     --itemize-changes \
   rsync \
-    --archive \
+    --recursive \
+    --links \
+    --times \
+    --delete \
     --itemize-changes \
-    --include-from "./rsync/$1.txt" \
+    --include-from "$(dirname $SCRIPT)/rsync/$1.txt" \
     suse.mobile-central.org::opensuse \
     "$SYNC_DIR/"
 #     rsync.opensuse.org::opensuse-full-with-factory \
