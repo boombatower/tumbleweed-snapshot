@@ -48,6 +48,8 @@ snapshot_list()
 
 snapshot_create()
 {
+  snapshots_available=(${snapshots[@]})
+
   # Always symlink latest snapshot to SYNC_DIR.
   if [ ! -e "$SNAPSHOT_DIR/${snapshots[0]}" ] ; then
     ln -s "../$(basename "$SYNC_DIR")" "$SNAPSHOT_DIR/${snapshots[0]}"
@@ -100,6 +102,8 @@ snapshot_create()
       echo ": exists"
     else
       echo ": missing"
+      local missing=($snapshot)
+      snapshots_available=(${snapshots_available[@]/$missing})
     fi
 
     ((i++))
@@ -155,7 +159,7 @@ if [ "$release" != "$snapshot_latest" ] ; then
   snapshot_list
   snapshot_create
   echo "$release" > "$SNAPSHOT_DIR/latest"
-  printf '%s\n' "${snapshots[@]}" > "$SNAPSHOT_DIR/list"
+  printf '%s\n' "${snapshots_available[@]}" > "$SNAPSHOT_DIR/list"
 fi
 
 # Since the script should be called repeatedly this should eventually complete.
