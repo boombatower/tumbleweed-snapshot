@@ -96,7 +96,7 @@ snapshot_create()
               ! "$file" -nt "$SNAPSHOT_DIR/$snapshot_older/$file" ]] ; then
             ln -s "../$snapshot_older/$file" "$dir/$file"
           else
-            cp -p "$file" "$dir/$file"
+            cp -a "$file" "$dir/$file"
           fi
         fi
 
