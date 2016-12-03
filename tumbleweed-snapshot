@@ -81,7 +81,8 @@ snapshot_create()
 
       local count=0
       # Cut removes the beginning ./ from paths.
-      find . ! -path . | cut -sd / -f 2- |  while read file ; do
+      # Ignore copying .htaccess until implement the current directory strategy.
+      find . ! -path . ! -path ./.htaccess | cut -sd / -f 2- |  while read file ; do
         if [ -d "$file" ] ; then
           mkdir -p "$dir/$file"
         else
