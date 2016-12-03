@@ -67,7 +67,6 @@ snapshot_create()
 
     if [ -L "$dir" ] ; then
       # Symlink indicates it was pointing to latest and should be snapshotted.
-      echo ": snapshotted"
       rm "$dir"
       mkdir "$dir"
 
@@ -98,6 +97,7 @@ snapshot_create()
           fi
         fi
       done
+      echo ": snapshotted"
     elif [ -d "$dir" ] ; then
       echo ": exists"
     else
