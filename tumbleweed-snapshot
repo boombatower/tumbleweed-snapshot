@@ -4,6 +4,7 @@ SCRIPT="$(cd "${0%/*}" && echo "$PWD")/${0##*/}"
 SYNC_DIR="/srv/www/htdocs/opensuse"
 SNAPSHOT_DIR="/srv/www/htdocs/snapshot"
 SNAPSHOT_AGE_MAX=100
+LOCKFILE_NAME="$SNAPSHOT_DIR/.lock"
 
 sync()
 {
@@ -140,6 +141,9 @@ snapshot_create()
     done
   fi
 }
+
+lockfile -r 0 "$LOCKFILE_NAME" || exit 1
+trap "rm -f \"$LOCKFILE_NAME\"; exit" 0 1 2 3 9 15
 
 if [ ! -d "$SNAPSHOT_DIR" ] ; then
   mkdir "$SNAPSHOT_DIR"
