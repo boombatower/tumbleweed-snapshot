@@ -79,6 +79,7 @@ snapshot_create()
       # Additionally, symlinks will make it easier to collect statistics on
       # snapshot size and exact number of packages that differ.
 
+      local count=0
       # Cut removes the beginning ./ from paths.
       find . ! -path . | cut -sd / -f 2- |  while read file ; do
         if [ -d "$file" ] ; then
@@ -95,6 +96,12 @@ snapshot_create()
           else
             cp -p "$file" "$dir/$file"
           fi
+        fi
+
+        ((count++))
+        if ! ((count % 10000)) ; then
+          # provide progress indication for long running jobs
+          echo "  processed $count files"
         fi
       done
       echo ": snapshotted"
