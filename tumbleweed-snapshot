@@ -20,14 +20,19 @@ sync()
     "$SYNC_DIR/"
 }
 
-snapshot_list()
+snapshot_list_raw()
 {
   local ISO_DIR="$SYNC_DIR/tumbleweed/iso"
+  find "$ISO_DIR" -name "Changes.*.txt" | grep -oP "\d+" | sort -r
+}
+
+snapshot_list()
+{
   local TODAY=$(date +%Y%m%d)
   local MONTH=$(date +%Y%m)
   snapshots=()
 
-  for snapshot in $(find "$ISO_DIR" -name "Changes.*.txt" | grep -oP "\d+" | sort -r) ; do
+  for snapshot in $(snapshot_list_raw) ; do
     # Changes files are sorted largest to smallest so once a snapshot is
     # encountered that is older than AGE_MAX stop looping.
     if [ $(( $TODAY - $snapshot )) -gt $SNAPSHOT_AGE_MAX ] ; then
@@ -158,6 +163,15 @@ fi
 release=$(osc list -b openSUSE:Factory _product:openSUSE-release snapshot x86_64 | \
   grep -oP "openSUSE-release-\K([^-]+)(?=-[^-]+\.src\.rpm)")
 
+# Check just the changes entries in rsync tree as they seem to get published
+# early in the process, sometimes before OBS. If the latest change entry is
+# newer than OBS use it as current release.
+sync "include-tumbleweed-changes"
+release_rsync=$(snapshot_list_raw | head -n 1)
+if [ "$release_rsync" -gt "$release" ] ; then
+  release="$release_rsync"
+fi
+
 if [ ! -f "$SNAPSHOT_DIR/latest" ] ; then
   snapshot_latest=0
 else
@@ -165,7 +179,7 @@ else
 fi
 
 if [ "$release" != "$snapshot_latest" ] ; then
-  echo "new snapshot $release published on OBS"
+  echo "new snapshot $release published"
   snapshot_latest="$release"
   snapshot_list
   snapshot_create
