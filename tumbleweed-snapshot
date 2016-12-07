@@ -16,9 +16,8 @@ sync()
     --itemize-changes \
     --no-motd \
     --include-from "$(dirname $SCRIPT)/rsync/$1.txt" \
-    suse.mobile-central.org::opensuse \
+    rsync.opensuse.org::opensuse-full-with-factory/opensuse/ \
     "$SYNC_DIR/"
-#     rsync.opensuse.org::opensuse-full-with-factory/opensuse/ \
 }
 
 snapshot_list()
