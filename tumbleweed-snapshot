@@ -23,7 +23,7 @@ sync()
 snapshot_list_raw()
 {
   local ISO_DIR="$SYNC_DIR/tumbleweed/iso"
-  find "$ISO_DIR" -name "Changes.*.txt" | grep -oP "\d+" | sort -r
+  find "$ISO_DIR" -maxdepth 1 -name "Changes.*.txt" | grep -oP "\d+" | sort -r
 }
 
 snapshot_list()
