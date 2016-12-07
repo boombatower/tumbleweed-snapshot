@@ -131,8 +131,11 @@ snapshot_create()
     for link in $(find "$SNAPSHOT_DIR/$snapshot_last" -type l) ; do
       dir="$(dirname "$link")"
       real="$(readlink -e "$link")"
-      rm "$link"
-      mv "$real" "$dir"
+      # Do not replace directory symlinks like tumbleweed/repo/debug.
+      if [ ! -d "$real" ] ; then
+        rm "$link"
+        mv "$real" "$dir"
+      fi
     done
 
     # Remove all old snapshot directories since they should no longer be
