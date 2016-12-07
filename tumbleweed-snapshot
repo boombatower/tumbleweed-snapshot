@@ -65,7 +65,7 @@ snapshot_create()
   local i=0
   local snapshots=(${snapshots[@]:1}) # remove latest snapshot since already handled
   for snapshot in ${snapshots[@]} ; do
-    echo -n $snapshot
+    echo -n "$snapshot: "
 
     local snapshot_older=${snapshots[$i+1]}
     local dir="$SNAPSHOT_DIR/$snapshot"
@@ -110,11 +110,11 @@ snapshot_create()
           echo "  processed $count files"
         fi
       done
-      echo ": snapshotted"
+      echo "snapshotted"
     elif [ -d "$dir" ] ; then
-      echo ": exists"
+      echo "exists"
     else
-      echo ": missing"
+      echo "missing"
       local missing=($snapshot)
       snapshots_available=(${snapshots_available[@]/$missing})
     fi
