@@ -103,7 +103,9 @@ snapshot_create()
           # -e does not include symlinks so a two part "exists" is used.
           if [[ ( -e "$SNAPSHOT_DIR/$snapshot_older/$file" || -L "$SNAPSHOT_DIR/$snapshot_older/$file" ) &&
               ! "$file" -nt "$SNAPSHOT_DIR/$snapshot_older/$file" ]] ; then
-            ln -s "../$snapshot_older/$file" "$dir/$file"
+            # Relative is more flexible in terms of mirror tree, but could end
+            # up being longer than a short absolute reference.
+            ln -sr "$SNAPSHOT_DIR/$snapshot_older/$file" "$dir/$file"
           else
             cp -a "$file" "$dir/$file"
           fi
