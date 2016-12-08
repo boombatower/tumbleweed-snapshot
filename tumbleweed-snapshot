@@ -188,7 +188,7 @@ else
   snapshot_latest=$(cat "$SNAPSHOT_DIR/latest")
 fi
 
-if [ "$release" != "$snapshot_latest" ] ; then
+if [ "$release" != "" ] && [ "$release" != "$snapshot_latest" ] ; then
   echo "new snapshot $release published"
   snapshot_latest="$release"
   snapshot_list
