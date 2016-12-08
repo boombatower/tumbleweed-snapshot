@@ -89,7 +89,12 @@ snapshot_create()
       # Ignore copying .htaccess until implement the current directory strategy.
       find . ! -path . ! -path ./.htaccess | cut -sd / -f 2- |  while read file ; do
         if [ -d "$file" ] ; then
-          mkdir -p "$dir/$file"
+          # Copy directory symlinks like tumbleweed/repo/debug.
+          if [ -L "$file" ] ; then
+            cp -a "$file" "$dir/$file"
+          else
+            mkdir -p "$dir/$file"
+          fi
         else
           # Not sure if rebuilds that produce the same rpm have modification
           # time updated. If so then it probably makes sense to special case
