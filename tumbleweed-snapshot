@@ -48,6 +48,12 @@ snapshot_list()
     snapshots=("$snapshot_latest" ${snapshots[@]})
   fi
 
+  # Remove ignored snapshots.
+  for ignore in $(cat "$SNAPSHOT_DIR/ignore") ; do
+    local ignore=($ignore)
+    snapshots=(${snapshots[@]/$ignore})
+  done
+
   echo "${#snapshots[@]} snapshots of interest"
 }
 
