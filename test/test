@@ -1,0 +1,353 @@
+#!/bin/bash
+# 100% comprehensive test...or so it seems.
+
+test_clean()
+{
+  rm -rf $SOURCE_DIR $SNAPSHOT_DIR $temp
+}
+
+test_setup()
+{
+  mkdir -p \
+    $SOURCE_DIR/debug/tumbleweed/repo/oss \
+    $SOURCE_DIR/tumbleweed/iso \
+    $SOURCE_DIR/tumbleweed/repo/oss
+  ln -s ../../debug/tumbleweed/repo/oss $SOURCE_DIR/tumbleweed/repo/debug
+}
+
+snapshot_from_num()
+{
+  date -d "-$1 days" +%Y%m%d
+}
+
+changes_generate()
+{
+  start=$1
+  end=$1
+  if [ $# -eq 2 ] ; then
+    end=$2
+  fi
+  for ((i=$1; i<=$end; i++)) ; do
+    local snapshot="$(snapshot_from_num $i)"
+    touch "$SOURCE_DIR/tumbleweed/iso/Changes.$snapshot.txt"
+    echo "> created $snapshot snapshot"
+  done
+}
+
+package_create()
+{
+  local version="1"
+  if [ $# -eq 2 ] ; then
+    version="$2"
+  fi
+
+  touch "$SOURCE_DIR/tumbleweed/repo/oss/package-$1-$version.rpm"
+  touch "$SOURCE_DIR/tumbleweed/repo/debug/package-$1-debuginfo-$version.rpm"
+  echo "> created package-$1-$version"
+}
+
+package_update()
+{
+  local largest=0
+  local version=0
+  for version in $(find $SOURCE_DIR -type f -name "package-$1-*" | grep -oP "package-[^-]+-\K\d+") ; do
+    if [ $version -gt $largest ] ; then
+      largest=$version
+    fi
+  done
+  find $SOURCE_DIR -type f -name "package-$1-*" -delete
+  echo "> removed package-$1-$largest"
+  ((largest++))
+  package_create $1 $largest
+}
+
+snapshot_do()
+{
+  ./tumbleweed-snapshot | tee "$temp"
+  assert_output_counter=0
+}
+
+assert_latest()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  local latest=$(cat "$SNAPSHOT_DIR/latest")
+  local diff=$(diff -u <(cat "$SNAPSHOT_DIR/list" | head -n 1) <(echo "$latest"))
+  if [ "$diff" != "" ] ; then
+    echo "> assert_latest failed:"
+    echo "$diff"
+    exit 1
+  elif [ "$snapshot" != "$latest" ] ; then
+    echo "> assert_latest failed: $1 ($snapshot != $latest)"
+    exit 1
+  else
+    echo "> assert_latest passed: $1 ($snapshot) matched"
+  fi
+
+  assert_redirect $1
+}
+
+assert_redirect()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  local found=0
+  for f in $(find "$SNAPSHOT_DIR" -type f -name ".htaccess") ; do
+    if [[ $f != *"$snapshot"* ]] ; then
+      echo "> assert_redirect failed: $1 ($snapshot) not only redirect, found in $(basename "$(dirname "$f")")"
+      exit 1
+    else
+      found=1
+    fi
+  done
+
+  if [ $found -ne 1 ] ; then
+    echo "> assert_redirect failed: $1 ($snapshot) does not have redirect"
+    exit 1
+  fi
+
+  echo "> assert_redirect passed: $1 ($snapshot) found"
+}
+
+assert_list()
+{
+  local list=$(find "$SNAPSHOT_DIR" -mindepth 1 -maxdepth 1 -type d | grep -oP "\d+$" | sort -r)
+  local diff=$(diff -u <(echo "$list") "$SNAPSHOT_DIR/list")
+  if [ "$diff" != "" ] ; then
+    echo "> assert_list failed:"
+    echo "$diff"
+    exit 1
+  else
+    echo "> assert_list passed: $(cat "$SNAPSHOT_DIR/list" | wc -l) matched"
+  fi
+}
+
+hardlink_count()
+{
+  if [ ! -f "$1" ] ; then
+    echo 0
+    exit
+  fi
+
+  find "$SNAPSHOT_DIR" -inum $(ls -i "$1" | grep -oP '^\d+') | wc -l
+}
+
+assert_hardlink()
+{
+  local paths=()
+  for f in $(find "$SOURCE_DIR" -type f -name "package-$2-*") ; do
+    # Strip SOURCE_DIR prefix and later the leading slash.
+    f="${f:${#SOURCE_DIR}}"
+    paths+=(${f:1})
+  done
+
+  local snapshot="$(snapshot_from_num $1)"
+  if [ ${#paths} -eq 0 ] ; then
+    echo "> assert_hardlink failed: [$2] $3 from $1 ($snapshot) not found"
+    exit 1
+  fi
+
+  local count=0
+  for path in "${paths[@]}" ; do
+    count=$(hardlink_count "$SOURCE_DIR/$path")
+    if [ $count -gt 0 ] ; then
+      echo "> assert_hardlink failed: [$2] more than one hardlink to source package"
+      exit 1
+    fi
+
+    count=$(hardlink_count "$SNAPSHOT_DIR/$snapshot/$path")
+    if [ $count -ne $3 ] ; then
+      echo "> assert_hardlink failed: [$2] $count != $3 from $1 ($snapshot)"
+      exit 1
+    fi
+  done
+  echo "> assert_hardlink passed: [$2] $3 from $1 ($snapshot)"
+}
+
+assert_output_published()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  if ! grep -q "new snapshot $snapshot published" "$temp" ; then
+    echo "> assert_output_published failed: $1 ($snapshot) not published"
+    exit 1
+  fi
+  echo "> assert_output_published passed: $1 ($snapshot)"
+  ((assert_output_counter++))
+}
+
+assert_output_interest()
+{
+  if ! grep -q "$1 snapshots of interest" "$temp" ; then
+    echo "> assert_output_interest failed: $1 of interest not found"
+    exit 1
+  fi
+  echo "> assert_output_interest passed: $1"
+  ((assert_output_counter++))
+}
+
+assert_output_created()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  if ! grep -q "$snapshot: snapshot created and redirect set" "$temp" ; then
+    echo "> assert_output_created failed: $1 ($snapshot) not created"
+    exit 1
+  fi
+  echo "> assert_output_created passed: $1 ($snapshot)"
+  ((assert_output_counter++))
+}
+
+assert_output_process()
+{
+  if [ $# -gt 2 ] ; then
+    for snapshot in "${@:2}" ; do
+      assert_output_process "$1" "$snapshot"
+    done
+    return
+  fi
+  local snapshot="$(snapshot_from_num $2)"
+  if ! grep -q "$snapshot: $1" "$temp" ; then
+    echo "> assert_output_$1 failed: $2 ($snapshot)"
+    exit 1
+  fi
+  echo "> assert_output_$1 passed: $2 ($snapshot)"
+  ((assert_output_counter++))
+}
+
+assert_output_redirect()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  if ! grep -q "$snapshot: redirect removed" "$temp" ; then
+    echo "> assert_output_redirect failed: $1 ($snapshot) redirect not removed"
+    exit 1
+  fi
+  echo "> assert_output_redirect passed: $1 ($snapshot)"
+  ((assert_output_counter++))
+}
+
+assert_output_lines()
+{
+  local lines="$(cat "$temp" | wc -l)"
+  if [ $lines -ne $1 ] ; then
+    echo "> assert_output_lines failed: $1 != $lines (lines in output)"
+    exit 1
+  fi
+  if [ $assert_output_counter -ne $lines ] ; then
+    echo "> assert_output_lines failed: $assert_output_counter != $lines (assertion for each line)"
+    exit 1
+  fi
+  echo "> assert_output_lines passed: $1"
+}
+
+export SOURCE_DIR="./test/opensuse"
+export SNAPSHOT_DIR="./test/snapshot"
+temp="./test/temp"
+
+test_clean
+test_setup
+
+
+# Create starting packages.
+package_create "foo" 17
+package_create "xyz" 123
+
+# Start with one older missing snapshot.
+changes_generate 6 7
+snapshot_do
+assert_latest 6
+assert_list
+assert_hardlink 6 "foo" 1
+assert_hardlink 6 "xyz" 1
+assert_output_published 6
+assert_output_interest 2
+assert_output_created 6
+assert_output_process "missing" 7
+assert_output_lines 4
+echo
+
+# Missed one snapshot and ensure hardlinking jumps back two snapshots properly.
+changes_generate 4 5
+package_create "linus"
+package_update "xyz"
+snapshot_do
+assert_latest 4
+assert_list
+assert_hardlink 4 "foo" 2
+assert_hardlink 4 "linus" 1
+assert_hardlink 4 "xyz" 1
+assert_output_published 4
+assert_output_interest 4
+assert_output_created 4
+assert_output_process "missing" 7 5
+assert_output_redirect 6
+assert_output_lines 6
+echo
+
+changes_generate 3
+package_update "linus"
+snapshot_do
+assert_latest 3
+assert_list
+assert_hardlink 3 "foo" 3
+assert_hardlink 3 "linus" 1
+assert_hardlink 3 "xyz" 2
+assert_output_published 3
+assert_output_interest 5
+assert_output_created 3
+assert_output_process "missing" 7 5
+assert_output_process "exists" 6
+assert_output_redirect 4
+assert_output_lines 7
+echo
+
+changes_generate 2
+package_update "linus"
+package_update "xyz"
+snapshot_do
+assert_latest 2
+assert_list
+assert_hardlink 2 "foo" 4
+assert_hardlink 2 "linus" 1
+assert_hardlink 2 "xyz" 1
+assert_output_published 2
+assert_output_interest 6
+assert_output_created 2
+assert_output_process "missing" 7 5
+assert_output_process "exists" 6 4
+assert_output_redirect 3
+assert_output_lines 8
+echo
+
+changes_generate 1
+snapshot_do
+assert_latest 1
+assert_list
+assert_hardlink 1 "foo" 5
+assert_hardlink 1 "linus" 2
+assert_hardlink 1 "xyz" 2
+assert_output_published 1
+assert_output_interest 7
+assert_output_created 1
+assert_output_process "missing" 7 5
+assert_output_process "exists" 6 4 3
+assert_output_redirect 2
+assert_output_lines 9
+echo
+
+# Simulate time passing and check cleanup.
+echo '> SNAPSHOT_AGE_MAX="-3 days"'
+export SNAPSHOT_AGE_MAX="-3 days"
+changes_generate 0
+snapshot_do
+assert_latest 0
+assert_list
+assert_hardlink 2 "foo" 4
+assert_hardlink 2 "linus" 3
+assert_hardlink 2 "xyz" 3
+assert_output_published 0
+assert_output_interest 4
+assert_output_created 0
+assert_output_process "exists" 3 2
+assert_output_process "removed" 6 4
+assert_output_redirect 1
+assert_output_lines 8
+
+
+test_clean
