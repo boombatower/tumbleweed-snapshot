@@ -1,0 +1,14 @@
++ /tumbleweed/
+# do not include iso directory
++ /tumbleweed/repo/
++ /tumbleweed/repo/***
+
++ /debug/
++ /debug/tumbleweed/
++ /debug/tumbleweed/***
+
++ /source/
++ /source/tumbleweed/
++ /source/tumbleweed/***
+
+- *

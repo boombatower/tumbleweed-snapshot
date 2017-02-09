@@ -16,6 +16,9 @@ install:
 	$(INSTALL) .htaccess $(DESTDIR)$(PREFIX)$(DIR)/
 	$(INSTALL) tumbleweed-snapshot $(DESTDIR)$(PREFIX)$(DIR)/
 
+	$(INSTALL) -d $(DESTDIR)$(PREFIX)$(DIR)/rsync/
+	$(COPY) -r rsync/ $(DESTDIR)$(PREFIX)$(DIR)/
+
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin/
 	ln -s $(PREFIX)$(DIR)/tumbleweed-snapshot $(DESTDIR)$(PREFIX)/bin/tumbleweed-snapshot
 

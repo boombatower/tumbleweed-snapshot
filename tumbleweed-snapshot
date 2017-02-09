@@ -8,6 +8,9 @@ fi
 if [ -z ${SNAPSHOT_DIR+x} ] ; then
   SNAPSHOT_DIR="/srv/www/htdocs/snapshot"
 fi
+if [ -z ${RSYNC_INCLUDE+x} ] ; then
+  RSYNC_INCLUDE="$SCRIPT_DIR/rsync/include-tumbleweed.txt"
+fi
 if [ -z ${SNAPSHOT_AGE_MAX+x} ] ; then
   SNAPSHOT_AGE_MAX="-60 days"
 fi
@@ -77,10 +80,10 @@ snapshot_process()
     local snapshot_older="$SNAPSHOT_DIR/${snapshots_available[1]}"
     if [ -d "$snapshot_older" ] ; then
       # Hardlink against previous snapshot.
-      rsync -a --delete --link-dest="$(realpath $snapshot_older)" "$SOURCE_DIR/" "$snapshot_latest"
+      rsync --include-from "$RSYNC_INCLUDE" -a --delete --link-dest="$(realpath $snapshot_older)" "$SOURCE_DIR/" "$snapshot_latest"
     else
       # First snapshot, with no previous base (ie make full copy).
-      rsync -a --delete "$SOURCE_DIR/" "$snapshot_latest"
+      rsync --include-from "$RSYNC_INCLUDE" -a --delete "$SOURCE_DIR/" "$snapshot_latest"
     fi
 
     # Redirect to main mirrors until next snapshot.
