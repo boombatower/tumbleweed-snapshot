@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 SCRIPT="$(cd "${0%/*}" && echo "$PWD")/${0##*/}"
+SCRIPT="$(readlink -f "$SCRIPT")"
 SCRIPT_DIR="$(dirname "$SCRIPT")"
 if [ -z ${SOURCE_DIR+x} ] ; then
   SOURCE_DIR="/srv/www/htdocs/opensuse"
