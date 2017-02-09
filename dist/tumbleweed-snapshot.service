@@ -1,0 +1,11 @@
+# http://www.freedesktop.org/software/systemd/man/systemd.service.html
+
+[Unit]
+Description=tumbleweed snapshot
+
+[Service]
+Type=oneshot
+User=tumbleweed-snapshot
+Group=tumbleweed-snapshot
+EnvironmentFile=/etc/tumbleweed-snapshot.conf
+ExecStart=/usr/bin/tumbleweed-snapshot
