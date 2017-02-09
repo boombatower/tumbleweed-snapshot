@@ -131,7 +131,7 @@ snapshot_check()
 }
 
 
-if [ ! -d "$SNAPSHOT_DIR" ] ; then
+if [ ! -d "$SNAPSHOT_DIR" ] || [ ! -f "$SNAPSHOT_DIR/latest" ] ; then
   snapshot_dir_init
 fi
 
