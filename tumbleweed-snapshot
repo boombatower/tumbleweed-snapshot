@@ -16,14 +16,26 @@ SNAPSHOT_AGE_MAX="${SNAPSHOT_AGE_MAX:--60 days}"
 SNAPSHOT_OLDEST=$(date -d "$SNAPSHOT_AGE_MAX" +%Y%m%d)
 
 
-if [ -z ${AWS_KEY+x} ] || [ -z ${AWS_SECRET+x} ] || [ -z ${AWS_BUCKET+x} ] ; then
-  echo "AWS_KEY, AWS_SECRET, and AWS_BUCKET are required for S3 access"
+# Check for automatically set credentials.
+if [ -z ${AWS_CONTAINER_CREDENTIALS_RELATIVE_URI+x} ] ; then
+  if [ -z ${AWS_KEY+x} ] || [ -z ${AWS_SECRET+x} ] || [ -z ${AWS_BUCKET+x} ] ; then
+    echo "AWS_KEY, AWS_SECRET, and AWS_BUCKET are required for S3 access"
+    exit 1
+  elif [ ! -d ~/.aws ] ; then
+    # Initialize aws-cli configuration.
+    echo "Initializing ~/.aws..."
+    mkdir ~/.aws
+    echo "[default]" > ~/.aws/credentials
+    echo "aws_access_key_id = $AWS_KEY" >> ~/.aws/credentials
+    echo "aws_secret_access_key = $AWS_SECRET" >> ~/.aws/credentials
+  else
+    echo "using existing config in ~/.aws"
+  fi
+elif [ -z ${AWS_BUCKET+x} ] ; then
+  echo "AWS_BUCKET is required for S3 access"
+  exit 1
 else
-  # Initialize aws-cli configuration.
-  mkdir ~/.aws
-  echo "[default]" > ~/.aws/credentials
-  echo "aws_access_key_id = $AWS_KEY" >> ~/.aws/credentials
-  echo "aws_secret_access_key = $AWS_SECRET" >> ~/.aws/credentials
+  echo "using automatic credentials"
 fi
 
 if [ ! -d "$SOURCE_DIR" ] ; then
