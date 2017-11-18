@@ -56,10 +56,10 @@ snapshot_remove()
   if [ ! -f "$SOURCE_DIR/$snapshot_next/rpm.list" ] ; then
     aws s3 cp "s3://$AWS_BUCKET/$snapshot_next/rpm.list" "$SOURCE_DIR/$snapshot_next/rpm.list"
   fi
-  comm --check-order -23 "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot_next/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.list.unique.remove"
+  comm --check-order -23 "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot_next/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.unique.remove.list"
 
-  wc -l "$SOURCE_DIR/$snapshot/rpm.list.unique.remove"
-  cat "$SOURCE_DIR/$snapshot/rpm.list.unique.remove" | \
+  wc -l "$SOURCE_DIR/$snapshot/rpm.unique.remove.list"
+  cat "$SOURCE_DIR/$snapshot/rpm.unique.remove.list" | \
   while read line ; do
     aws s3 rm "s3://$AWS_BUCKET/shared/$line"
   done
@@ -159,11 +159,11 @@ echo "determine unique rpm list..."
 if [ ${#snapshots[@]} -gt 0 ] ; then
   echo "comparing $snapshot against ${snapshots[0]}..."
   aws s3 cp "s3://$AWS_BUCKET/${snapshots[0]}/rpm.list" "$SOURCE_DIR/${snapshots[0]}/rpm.list"
-  comm --check-order -23 "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/${snapshots[0]}/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.list.unique"
+  comm --check-order -23 "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/${snapshots[0]}/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.unique.list"
 else
-  cp "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot/rpm.list.unique"
+  cp "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot/rpm.unique.list"
 fi
-wc -l "$SOURCE_DIR/$snapshot/rpm.list.unique"
+wc -l "$SOURCE_DIR/$snapshot/rpm.unique.list"
 
 if [ ! -d "$SOURCE_DIR/shared" ] ; then
   mkdir "$SOURCE_DIR/shared"
@@ -171,12 +171,12 @@ fi
 
 echo "rsync unqiue rpms to shared directory..."
 rsync --recursive --copy-links --size-only --itemize-changes --no-motd \
-  --files-from "$SOURCE_DIR/$snapshot/rpm.list.unique" "$RSYNC_URL" "$SOURCE_DIR/shared"
+  --files-from "$SOURCE_DIR/$snapshot/rpm.unique.list" "$RSYNC_URL" "$SOURCE_DIR/shared"
 
 (
   cd "$SOURCE_DIR"
   du -sh "$snapshot"
-  wc -l "$snapshot/rpm.list.unique"
+  wc -l "$snapshot/rpm.unique.list"
   du -sh "shared"
 ) > "$SOURCE_DIR/$snapshot/disk"
 cat "$SOURCE_DIR/$snapshot/disk"
