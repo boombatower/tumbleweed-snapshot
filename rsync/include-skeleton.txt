@@ -1,0 +1,15 @@
++ /repo/
++ /repo/oss/
+- /repo/oss/suse/i586/
+- /repo/oss/suse/i686/
+- /repo/oss/suse/noarch/
+- /repo/oss/suse/x86_64/
++ /repo/oss/***
++ /repo/non-oss/
+- /repo/non-oss/suse/i586/
+- /repo/non-oss/suse/i686/
+- /repo/non-oss/suse/noarch/
+- /repo/non-oss/suse/x86_64/
++ /repo/non-oss/***
+
+- *

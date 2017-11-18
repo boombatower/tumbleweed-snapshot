@@ -1,142 +1,190 @@
 #!/usr/bin/env bash
 
+set -e
+
 SCRIPT="$(cd "${0%/*}" && echo "$PWD")/${0##*/}"
 SCRIPT="$(readlink -f "$SCRIPT")"
 SCRIPT_DIR="$(dirname "$SCRIPT")"
-if [ -z ${SOURCE_DIR+x} ] ; then
-  SOURCE_DIR="/srv/www/htdocs/opensuse"
-fi
-if [ -z ${SNAPSHOT_DIR+x} ] ; then
-  SNAPSHOT_DIR="/srv/www/htdocs/snapshot"
-fi
-if [ -z ${RSYNC_INCLUDE+x} ] ; then
-  RSYNC_INCLUDE="$SCRIPT_DIR/rsync/include-tumbleweed.txt"
-fi
-if [ -z ${SNAPSHOT_AGE_MAX+x} ] ; then
-  SNAPSHOT_AGE_MAX="-60 days"
-fi
+
+SOURCE_DIR="${SOURCE_DIR:-/srv/www/htdocs/opensuse}"
+BASE_URL="${BASE_URL:-http://download.opensuse.org/tumbleweed}"
+# Preferrable to use rsync.opensuse.org, but regularly out-of-sync.
+RSYNC_URL="${RSYNC_URL:-sfo-korg-mirror.kernel.org::opensuse/tumbleweed/}"
+RSYNC_INCLUDE="${RSYNC_INCLUDE:-$SCRIPT_DIR/rsync/include-skeleton.txt}"
+RSYNC_INCLUDE_RPM="${RSYNC_INCLUDE_RPM:-$SCRIPT_DIR/rsync/include-rpm.txt}"
+SNAPSHOT_AGE_MAX="${SNAPSHOT_AGE_MAX:--60 days}"
 SNAPSHOT_OLDEST=$(date -d "$SNAPSHOT_AGE_MAX" +%Y%m%d)
-LOCKFILE_NAME="$SNAPSHOT_DIR/.lock"
-
-snapshot_list_raw()
-{
-  local ISO_DIR="$SOURCE_DIR/tumbleweed/iso"
-  find "$ISO_DIR" -maxdepth 1 -name "Changes.*.txt" | grep -oP "\d+" | sort -r
-}
-
-snapshot_list()
-{
-  snapshots=()
-
-  for snapshot in $(snapshot_list_raw) ; do
-    # Changes files are sorted largest to smallest so once a snapshot is
-    # encountered that is older than OLDEST stop looping.
-    if [ $snapshot -lt $SNAPSHOT_OLDEST ] ; then
-      break
-    fi
-    snapshots+=($snapshot)
-  done
-
-  # Remove ignored snapshots.
-  for ignore in $(cat "$SNAPSHOT_DIR/ignore") ; do
-    local ignore=($ignore)
-    snapshots=(${snapshots[@]/$ignore})
-  done
-
-  echo "${#snapshots[@]} snapshots of interest"
-}
-
-snapshot_process()
-{
-  snapshots_available=(${snapshots[@]})
-
-  # Remove latest snapshot since handled below and process existing snapshots.
-  # Missing snapshots will be removed ensuring that if snapshots are missed or
-  # ignored that the new snapshot will be hardlinked againsts the next available
-  # snapshot instead of none in the case the previous was missed.
-  local snapshots=(${snapshots[@]:1})
-  local i=0
-  for snapshot in ${snapshots[@]} ; do
-    echo -n "$snapshot: "
-
-    local dir="$SNAPSHOT_DIR/$snapshot"
-    if [ -f "$dir/.htaccess" ] ; then
-      # Indicates directory represented the latest snapshot.
-      rm "$dir/.htaccess"
-      echo "redirect removed"
-    elif [ -d "$dir" ] ; then
-      echo "exists"
-    else
-      local missing=($snapshot)
-      snapshots_available=(${snapshots_available[@]/$missing})
-      echo "missing"
-    fi
-
-    ((i++))
-  done
-
-  # Snapshot latest (assumes source are fully updated).
-  local snapshot_latest="$SNAPSHOT_DIR/${snapshots_available[0]}"
-  if [ ! -e "$snapshot_latest" ] ; then
-    local snapshot_older="$SNAPSHOT_DIR/${snapshots_available[1]}"
-    if [ -d "$snapshot_older" ] ; then
-      # Hardlink against previous snapshot.
-      rsync --include-from "$RSYNC_INCLUDE" -a --delete --link-dest="$(realpath $snapshot_older)" "$SOURCE_DIR/" "$snapshot_latest"
-    else
-      # First snapshot, with no previous base (ie make full copy).
-      rsync --include-from "$RSYNC_INCLUDE" -a --delete "$SOURCE_DIR/" "$snapshot_latest"
-    fi
-
-    # Redirect to main mirrors until next snapshot.
-    cp "$SCRIPT_DIR/.htaccess" "$snapshot_latest"
-
-    echo "${snapshots_available[0]}: snapshot created and redirect set"
-  fi
-
-  # Remove expired snapshots.
-  for f in $(find "$SNAPSHOT_DIR" -mindepth 1 -maxdepth 1 -type d | sort -r) ; do
-    local snapshot="$(basename "$f")"
-    if [ -d "$f" ] && [ $snapshot -lt $SNAPSHOT_OLDEST ] ; then
-      rm -rf "$f"
-      local removed=($snapshot)
-      snapshots_available=(${snapshots_available[@]/$removed})
-      echo "$(basename "$f"): removed"
-    fi
-  done
-}
-
-snapshot_dir_init()
-{
-  mkdir "$SNAPSHOT_DIR"
-  echo 0 > "$SNAPSHOT_DIR/latest"
-  echo -n > "$SNAPSHOT_DIR/list"
-  echo -n > "$SNAPSHOT_DIR/ignore"
-}
-
-snapshot_check()
-{
-  # Check the changes entries to determine current release.
-  local release=$(snapshot_list_raw | head -n 1)
-  local snapshot_latest=$(cat "$SNAPSHOT_DIR/latest")
-
-  # Only process if new release which may mean multiple snapshots can expire if
-  # no new snapshots are published.
-  if [ "$release" != "" ] && [ "$release" -gt "$snapshot_latest" ] ; then
-    echo "new snapshot $release published"
-    snapshot_latest="$release"
-    snapshot_list
-    snapshot_process
-    echo "$release" > "$SNAPSHOT_DIR/latest"
-    printf '%s\n' "${snapshots_available[@]}" > "$SNAPSHOT_DIR/list"
-  fi
-}
 
 
-if [ ! -d "$SNAPSHOT_DIR" ] || [ ! -f "$SNAPSHOT_DIR/latest" ] ; then
-  snapshot_dir_init
+if [ -z ${AWS_KEY+x} ] || [ -z ${AWS_SECRET+x} ] || [ -z ${AWS_BUCKET+x} ] ; then
+  echo "AWS_KEY, AWS_SECRET, and AWS_BUCKET are required for S3 access"
+else
+  # Initialize aws-cli configuration.
+  mkdir ~/.aws
+  echo "[default]" > ~/.aws/credentials
+  echo "aws_access_key_id = $AWS_KEY" >> ~/.aws/credentials
+  echo "aws_secret_access_key = $AWS_SECRET" >> ~/.aws/credentials
 fi
 
-lockfile -r 0 "$LOCKFILE_NAME" || exit 1
-trap "rm -f \"$LOCKFILE_NAME\"; exit" 0 1 2 3 9 15
+if [ ! -d "$SOURCE_DIR" ] ; then
+  mkdir -p "$SOURCE_DIR"
+fi
 
-snapshot_check
+snapshots=($(aws s3 ls "s3://$AWS_BUCKET" | grep -oP "PRE \K\d+" | sort -r))
+snapshot=$(wget -qO - "$BASE_URL/repo/oss/media.1/products" | grep -oP " \K\d+")
+echo -n "current snapshot is $snapshot..."
+
+if [ "$snapshot" == "${snapshots[0]}" ] ; then
+  echo "already snapshotted"
+  exit
+elif [ "$snapshot" == "" ] ; then
+  echo "empty snapshot, exit."
+  exit 1
+fi
+echo "new"
+echo "creating snapshot against ${snapshots[0]}..."
+
+
+snapshot_remove()
+{
+  local snapshot=$1
+  local snapshot_next=$2
+  echo "removing $snapshot by comparing against $snapshot_next..."
+  if [ ! -f "$SOURCE_DIR/$snapshot/rpm.list" ] ; then
+    aws s3 cp "s3://$AWS_BUCKET/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot/rpm.list"
+  fi
+  if [ ! -f "$SOURCE_DIR/$snapshot_next/rpm.list" ] ; then
+    aws s3 cp "s3://$AWS_BUCKET/$snapshot_next/rpm.list" "$SOURCE_DIR/$snapshot_next/rpm.list"
+  fi
+  comm --check-order -23 "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot_next/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.list.unique.remove"
+
+  wc -l "$SOURCE_DIR/$snapshot/rpm.list.unique.remove"
+  cat "$SOURCE_DIR/$snapshot/rpm.list.unique.remove" | \
+  while read line ; do
+    aws s3 rm "s3://$AWS_BUCKET/shared/$line"
+  done
+  aws s3 rm --recursive "s3://$AWS_BUCKET/$snapshot"
+}
+
+if [ "$SNAPSHOT_OLDEST" != "" ] ; then
+  echo "checking for expired snapshots (older than $SNAPSHOT_OLDEST)..."
+  previous=""
+  for snap in ${snapshots[@]} ; do
+    if [ $snap -lt $SNAPSHOT_OLDEST ] && [ "$previous" != "" ] ; then
+      snapshots=(${snapshots[@]/$snap})
+      snapshot_remove $snap $previous
+    fi
+    previous=$snap
+  done
+fi
+
+
+echo "updating redirects..."
+parts=()
+for snap in ${snapshots[@]} ; do
+  if [ "$snap" == "$snapshot" ] ; then
+    continue
+  fi
+
+  parts+=('{
+  "Condition": {
+    "HttpErrorCodeReturnedEquals": "404",
+    "KeyPrefixEquals": "'$snap'"
+  },
+  "Redirect": {
+    "HttpRedirectCode": "301",
+    "ReplaceKeyPrefixWith": "shared"
+  }
+},')
+done
+
+if [ ${#parts[@]} -gt 0 ] ; then
+  combined="${parts[@]}"
+  # Prefix with comma and remove trailing comma.
+  combined=",${combined::-1}"
+else
+  combined=""
+fi
+
+# Generate complete config for current and previous snapshots. Current should
+# always redirect to d.o.o while previous redirect missing files to shared.
+cat > /tmp/website-config.json << EOM
+{
+  "ErrorDocument": {
+    "Key": "404.html"
+  },
+  "IndexDocument": {
+    "Suffix": "index.html"
+  },
+  "RoutingRules": [
+    {
+      "Condition": {
+        "KeyPrefixEquals": "$snapshot"
+      },
+      "Redirect": {
+        "HostName": "download.opensuse.org",
+        "HttpRedirectCode": "302",
+        "Protocol": "http",
+        "ReplaceKeyPrefixWith": "tumbleweed"
+      }
+    }
+    $combined
+  ]
+}
+EOM
+
+cat /tmp/website-config.json
+aws s3api put-bucket-website --bucket "$AWS_BUCKET" --website-configuration file:///tmp/website-config.json
+
+echo "updating lastest and list files..."
+echo "$snapshot" > "$SNAPSHOT_DIR/latest"
+echo "$snapshot" > "$SNAPSHOT_DIR/list"
+printf '%s\n' "${snapshots[@]}" >> "$SNAPSHOT_DIR/list"
+
+aws s3 cp --acl public-read --content-type text/plain "$SNAPSHOT_DIR/latest" "s3://$AWS_BUCKET/latest"
+aws s3 cp --acl public-read --content-type text/plain "$SNAPSHOT_DIR/list" "s3://$AWS_BUCKET/list"
+aws s3 cp --acl public-read "$SCRIPT_DIR/resource/index.html" "s3://$AWS_BUCKET/index.html"
+
+
+echo "rsync unversioned base files..."
+rsync --recursive --delete --delete-excluded --copy-links --itemize-changes --no-motd \
+  --include-from "$RSYNC_INCLUDE" "$RSYNC_URL" "$SOURCE_DIR/$snapshot"
+
+echo "rsync rpm list..."
+rsync --recursive --list-only --no-motd \
+  --include-from "$RSYNC_INCLUDE_RPM" "$RSYNC_URL" | \
+  grep -oP "[^ ]+\.rpm$" | sort -n > "$SOURCE_DIR/$snapshot/rpm.list"
+
+echo "determine unique rpm list..."
+if [ ${#snapshots[@]} -gt 0 ] ; then
+  echo "comparing $snapshot against ${snapshots[0]}..."
+  aws s3 cp "s3://$AWS_BUCKET/${snapshots[0]}/rpm.list" "$SOURCE_DIR/${snapshots[0]}/rpm.list"
+  comm --check-order -23 "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/${snapshots[0]}/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.list.unique"
+else
+  cp "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot/rpm.list.unique"
+fi
+wc -l "$SOURCE_DIR/$snapshot/rpm.list.unique"
+
+if [ ! -d "$SOURCE_DIR/shared" ] ; then
+  mkdir "$SOURCE_DIR/shared"
+fi
+
+echo "rsync unqiue rpms to shared directory..."
+rsync --recursive --copy-links --size-only --itemize-changes --no-motd \
+  --files-from "$SOURCE_DIR/$snapshot/rpm.list.unique" "$RSYNC_URL" "$SOURCE_DIR/shared"
+
+(
+  cd "$SOURCE_DIR"
+  du -sh "$snapshot"
+  wc -l "$snapshot/rpm.list.unique"
+  du -sh "shared"
+) > "$SOURCE_DIR/$snapshot/disk"
+cat "$SOURCE_DIR/$snapshot/disk"
+
+echo "sync snapshot directory to S3..."
+aws s3 sync --acl public-read --size-only "$SOURCE_DIR/$snapshot" "s3://$AWS_BUCKET/$snapshot"
+
+echo "sync shared directory to S3..."
+aws s3 sync --acl public-read --size-only "$SOURCE_DIR/shared" "s3://$AWS_BUCKET/shared"
+
+echo "snapshot created successfully"
