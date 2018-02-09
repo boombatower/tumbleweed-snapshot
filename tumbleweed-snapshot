@@ -14,6 +14,7 @@ RSYNC_INCLUDE="${RSYNC_INCLUDE:-$SCRIPT_DIR/rsync/include-skeleton.txt}"
 RSYNC_INCLUDE_RPM="${RSYNC_INCLUDE_RPM:-$SCRIPT_DIR/rsync/include-rpm.txt}"
 SNAPSHOT_AGE_MAX="${SNAPSHOT_AGE_MAX:--120 days}"
 SNAPSHOT_OLDEST=$(date -d "$SNAPSHOT_AGE_MAX" +%Y%m%d)
+SNAPSHOT_COUNT_MAX=50
 SNAPSHOT_DELAY="${SNAPSHOT_DELAY:-14400}" # 4 * 3600
 SNAPSHOT_META_ONLY=1
 
@@ -95,12 +96,14 @@ snapshot_remove()
 if [ "$SNAPSHOT_OLDEST" != "" ] ; then
   echo "checking for expired snapshots (older than $SNAPSHOT_OLDEST)..."
   previous=""
+  index=1
   for snap in ${snapshots[@]} ; do
-    if [ $snap -lt $SNAPSHOT_OLDEST ] && [ "$previous" != "" ] ; then
+    if ( [ $snap -lt $SNAPSHOT_OLDEST ] || [ $index -ge $SNAPSHOT_COUNT_MAX ] ) && [ "$previous" != "" ] ; then
       snapshots=(${snapshots[@]/$snap})
       snapshot_remove $snap $previous
     fi
     previous=$snap
+    ((index++))
   done
 fi
 
