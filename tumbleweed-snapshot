@@ -9,7 +9,7 @@ SCRIPT_DIR="$(dirname "$SCRIPT")"
 SOURCE_DIR="${SOURCE_DIR:-/srv/www/htdocs/opensuse}"
 BASE_URL="${BASE_URL:-http://download.opensuse.org/tumbleweed}"
 # Preferrable to use rsync.opensuse.org, but regularly out-of-sync.
-RSYNC_URL="${RSYNC_URL:-sfo-korg-mirror.kernel.org::opensuse/tumbleweed/}"
+RSYNC_URL="${RSYNC_URL:-mirror.us.leaseweb.net::opensuse/tumbleweed/}"
 RSYNC_INCLUDE="${RSYNC_INCLUDE:-$SCRIPT_DIR/rsync/include-skeleton.txt}"
 RSYNC_INCLUDE_RPM="${RSYNC_INCLUDE_RPM:-$SCRIPT_DIR/rsync/include-rpm.txt}"
 SNAPSHOT_AGE_MAX="${SNAPSHOT_AGE_MAX:--60 days}"
