@@ -12,7 +12,7 @@ BASE_URL="${BASE_URL:-http://download.opensuse.org/tumbleweed}"
 RSYNC_URL="${RSYNC_URL:-mirror.us.leaseweb.net::opensuse/tumbleweed/}"
 RSYNC_INCLUDE="${RSYNC_INCLUDE:-$SCRIPT_DIR/rsync/include-skeleton.txt}"
 RSYNC_INCLUDE_RPM="${RSYNC_INCLUDE_RPM:-$SCRIPT_DIR/rsync/include-rpm.txt}"
-SNAPSHOT_AGE_MAX="${SNAPSHOT_AGE_MAX:--60 days}"
+SNAPSHOT_AGE_MAX="${SNAPSHOT_AGE_MAX:--120 days}"
 SNAPSHOT_OLDEST=$(date -d "$SNAPSHOT_AGE_MAX" +%Y%m%d)
 
 
