@@ -14,6 +14,8 @@ RSYNC_INCLUDE="${RSYNC_INCLUDE:-$SCRIPT_DIR/rsync/include-skeleton.txt}"
 RSYNC_INCLUDE_RPM="${RSYNC_INCLUDE_RPM:-$SCRIPT_DIR/rsync/include-rpm.txt}"
 SNAPSHOT_AGE_MAX="${SNAPSHOT_AGE_MAX:--120 days}"
 SNAPSHOT_OLDEST=$(date -d "$SNAPSHOT_AGE_MAX" +%Y%m%d)
+SNAPSHOT_DELAY="${SNAPSHOT_DELAY:-14400}" # 4 * 3600
+SNAPSHOT_META_ONLY=1
 
 
 # Check for automatically set credentials.
@@ -54,6 +56,18 @@ elif [ "$snapshot" == "" ] ; then
   exit 1
 fi
 echo "new"
+
+if [ $(aws s3 cp "s3://$AWS_BUCKET/latest" -) == "$snapshot" ] ; then
+  delta="$(( $(date +%s) - $(date --date "$(aws s3 ls "s3://$AWS_BUCKET/latest" | grep -oP '^[^ ]+ [^ ]+')" +%s) ))"
+  echo "already seen, $delta seconds ago..."
+  if [ "$delta" -ge "$SNAPSHOT_DELAY" ] ; then
+    echo "waited long enough (>= $SNAPSHOT_DELAY)..."
+    SNAPSHOT_META_ONLY=0
+  else
+    echo "need to wait $SNAPSHOT_DELAY seconds..."
+    exit
+  fi
+fi
 echo "creating snapshot against ${snapshots[0]}..."
 
 
@@ -156,6 +170,11 @@ printf '%s\n' "${snapshots[@]}" >> "$SNAPSHOT_DIR/list"
 aws s3 cp --acl public-read --content-type text/plain "$SNAPSHOT_DIR/latest" "s3://$AWS_BUCKET/latest"
 aws s3 cp --acl public-read --content-type text/plain "$SNAPSHOT_DIR/list" "s3://$AWS_BUCKET/list"
 aws s3 cp --acl public-read "$SCRIPT_DIR/resource/index.html" "s3://$AWS_BUCKET/index.html"
+
+if [ "$SNAPSHOT_META_ONLY" -eq 1 ] ; then
+  echo "meta only...exit"
+  exit
+fi
 
 
 echo "rsync unversioned base files..."
