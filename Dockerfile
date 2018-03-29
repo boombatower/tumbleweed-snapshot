@@ -1,6 +1,6 @@
 # https://docs.docker.com/engine/reference/builder/
 
-FROM opensuse:tumbleweed
+FROM opensuse/tumbleweed
 MAINTAINER Jimmy Berry <jimmy@boombatower.com>
 
 RUN zypper -n ref && zypper -n dup && zypper -n in aws-cli make wget rsync
