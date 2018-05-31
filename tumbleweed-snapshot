@@ -175,6 +175,9 @@ aws s3 cp --acl public-read --content-type text/plain "$SNAPSHOT_DIR/list" "s3:/
 aws s3 cp --acl public-read "$SCRIPT_DIR/resource/index.html" "s3://$AWS_BUCKET/index.html"
 
 if [ "$SNAPSHOT_META_ONLY" -eq 1 ] ; then
+  aws cloudfront create-invalidation \
+    --distribution-id "$DISTRIBUTION_ID" \
+    --paths /latest /list "/${snapshots[0]}"
   echo "meta only...exit"
   exit
 fi
