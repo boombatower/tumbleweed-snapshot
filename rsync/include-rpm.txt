@@ -1,13 +1,34 @@
 + /repo/
 + /repo/oss/
 + /repo/oss/i586/
+
+- /repo/oss/i586/*-Kubic-*
+- /repo/oss/i586/kubic-*-image-*
+- /repo/oss/i586/skelcd-installer-*
+- /repo/oss/i586/install-initrd-*
+- /repo/oss/i586/cross-*-gcc*
+
 + /repo/oss/i586/*
 + /repo/oss/i686/
 + /repo/oss/i686/*
 + /repo/oss/noarch/
+
+- /repo/oss/noarch/*-Kubic-*
+- /repo/oss/noarch/tftpboot-installation-*
+
 + /repo/oss/noarch/*
 + /repo/oss/x86_64/
+
+- /repo/oss/x86_64/*-Kubic-*
+- /repo/oss/x86_64/kubic-*-image-*
+- /repo/oss/x86_64/skelcd-installer-*
+- /repo/oss/x86_64/install-initrd-*
+- /repo/oss/x86_64/cross-*-gcc*
+
+- /repo/oss/x86_64/opensuse-tumbleweed-image-*
+
 + /repo/oss/x86_64/*
+
 + /repo/non-oss/
 + /repo/non-oss/i586/
 + /repo/non-oss/i586/*
