@@ -1,3 +1,12 @@
+# Exclude large dumps that are not typically useful to conserve space.
+- /***/*-Kubic-*
+- /***/kubic-*-image-*
+- /***/skelcd-installer-*
+- /***/install-initrd-*
+- /***/cross-*-gcc*
+- /***/tftpboot-installation-*
+- /***/opensuse-tumbleweed-image-*
+
 + /tumbleweed/
 # do not include iso directory
 + /tumbleweed/repo/

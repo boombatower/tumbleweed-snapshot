@@ -246,6 +246,7 @@ test_setup
 
 # Create starting packages.
 package_create "foo" 17
+package_create "something-Kubic-does" 123
 package_create "xyz" 123
 
 # Start with one older missing snapshot.
@@ -254,6 +255,7 @@ snapshot_do
 assert_latest 6
 assert_list
 assert_hardlink 6 "foo" 1
+assert_hardlink 6 "something-Kubic-does" 0
 assert_hardlink 6 "xyz" 1
 assert_output_published 6
 assert_output_interest 2
@@ -271,6 +273,7 @@ assert_latest 4
 assert_list
 assert_hardlink 4 "foo" 2
 assert_hardlink 4 "linus" 1
+assert_hardlink 4 "something-Kubic-does" 0
 assert_hardlink 4 "xyz" 1
 assert_output_published 4
 assert_output_interest 4
@@ -287,6 +290,7 @@ assert_latest 3
 assert_list
 assert_hardlink 3 "foo" 3
 assert_hardlink 3 "linus" 1
+assert_hardlink 3 "something-Kubic-does" 0
 assert_hardlink 3 "xyz" 2
 assert_output_published 3
 assert_output_interest 5
@@ -305,6 +309,7 @@ assert_latest 2
 assert_list
 assert_hardlink 2 "foo" 4
 assert_hardlink 2 "linus" 1
+assert_hardlink 2 "something-Kubic-does" 0
 assert_hardlink 2 "xyz" 1
 assert_output_published 2
 assert_output_interest 6
@@ -321,6 +326,7 @@ assert_latest 1
 assert_list
 assert_hardlink 1 "foo" 5
 assert_hardlink 1 "linus" 2
+assert_hardlink 1 "something-Kubic-does" 0
 assert_hardlink 1 "xyz" 2
 assert_output_published 1
 assert_output_interest 7
@@ -340,6 +346,7 @@ assert_latest 0
 assert_list
 assert_hardlink 2 "foo" 4
 assert_hardlink 2 "linus" 3
+assert_hardlink 2 "something-Kubic-does" 0
 assert_hardlink 2 "xyz" 3
 assert_output_published 0
 assert_output_interest 4
