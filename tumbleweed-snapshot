@@ -166,12 +166,12 @@ cat /tmp/website-config.json
 aws s3api put-bucket-website --bucket "$AWS_BUCKET" --website-configuration file:///tmp/website-config.json
 
 echo "updating lastest and list files..."
-echo "$snapshot" > "$SNAPSHOT_DIR/latest"
-echo "$snapshot" > "$SNAPSHOT_DIR/list"
-printf '%s\n' "${snapshots[@]}" >> "$SNAPSHOT_DIR/list"
+echo "$snapshot" > "$SOURCE_DIR/latest"
+echo "$snapshot" > "$SOURCE_DIR/list"
+printf '%s\n' "${snapshots[@]}" >> "$SOURCE_DIR/list"
 
-aws s3 cp --acl public-read --content-type text/plain "$SNAPSHOT_DIR/latest" "s3://$AWS_BUCKET/latest"
-aws s3 cp --acl public-read --content-type text/plain "$SNAPSHOT_DIR/list" "s3://$AWS_BUCKET/list"
+aws s3 cp --acl public-read --content-type text/plain "$SOURCE_DIR/latest" "s3://$AWS_BUCKET/latest"
+aws s3 cp --acl public-read --content-type text/plain "$SOURCE_DIR/list" "s3://$AWS_BUCKET/list"
 aws s3 cp --acl public-read "$SCRIPT_DIR/resource/index.html" "s3://$AWS_BUCKET/index.html"
 
 if [ "$SNAPSHOT_META_ONLY" -eq 1 ] ; then
