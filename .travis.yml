@@ -1,0 +1,9 @@
+language: generic
+addons:
+  apt:
+    packages:
+    - procmail
+    - realpath
+
+script:
+- test/test
