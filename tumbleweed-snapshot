@@ -79,9 +79,13 @@ snapshot_remove()
   echo "removing $snapshot by comparing against $snapshot_next..."
   if [ ! -f "$SOURCE_DIR/$snapshot/rpm.list" ] ; then
     aws s3 cp "s3://$AWS_BUCKET/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot/rpm.list"
+    sort -n "$SOURCE_DIR/$snapshot/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.list2"
+    mv "$SOURCE_DIR/$snapshot/rpm.list2" "$SOURCE_DIR/$snapshot/rpm.list"
   fi
   if [ ! -f "$SOURCE_DIR/$snapshot_next/rpm.list" ] ; then
     aws s3 cp "s3://$AWS_BUCKET/$snapshot_next/rpm.list" "$SOURCE_DIR/$snapshot_next/rpm.list"
+    sort -n "$SOURCE_DIR/$snapshot_next/rpm.list" > "$SOURCE_DIR/$snapshot_next/rpm.list2"
+    mv "$SOURCE_DIR/$snapshot_next/rpm.list2" "$SOURCE_DIR/$snapshot_next/rpm.list"
   fi
   comm --check-order -23 "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot_next/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.unique.remove.list"
 
@@ -196,6 +200,8 @@ echo "determine unique rpm list..."
 if [ ${#snapshots[@]} -gt 0 ] ; then
   echo "comparing $snapshot against ${snapshots[0]}..."
   aws s3 cp "s3://$AWS_BUCKET/${snapshots[0]}/rpm.list" "$SOURCE_DIR/${snapshots[0]}/rpm.list"
+  sort -n "$SOURCE_DIR/${snapshots[0]}/rpm.list" > "$SOURCE_DIR/${snapshots[0]}/rpm.list2"
+  mv "$SOURCE_DIR/${snapshots[0]}/rpm.list2" "$SOURCE_DIR/${snapshots[0]}/rpm.list"
   comm --check-order -23 "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/${snapshots[0]}/rpm.list" > "$SOURCE_DIR/$snapshot/rpm.unique.list"
 else
   cp "$SOURCE_DIR/$snapshot/rpm.list" "$SOURCE_DIR/$snapshot/rpm.unique.list"
