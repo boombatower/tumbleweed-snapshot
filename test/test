@@ -383,3 +383,4 @@ echo
 
 
 test_clean
+echo "all assertions successful"
