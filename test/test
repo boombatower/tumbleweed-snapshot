@@ -360,5 +360,11 @@ assert_output_root_files
 assert_output_lines 7
 echo
 
+echo '> do nothing'
+snapshot_do
+assert_output_process "already snapshotted" 0
+assert_output_lines 1
+echo
+
 
 test_clean
