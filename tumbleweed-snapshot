@@ -13,7 +13,7 @@ if [ -z ${RSYNC_INCLUDE+x} ] ; then
   RSYNC_INCLUDE="$SCRIPT_DIR/rsync/include-tumbleweed.txt"
 fi
 if [ -z ${SNAPSHOT_AGE_MAX+x} ] ; then
-  SNAPSHOT_AGE_MAX="-60 days"
+  SNAPSHOT_AGE_MAX="-180 days"
 fi
 SNAPSHOT_OLDEST=$(date -d "$SNAPSHOT_AGE_MAX" +%Y%m%d)
 LOCKFILE_NAME="$SNAPSHOT_DIR/.lock"
