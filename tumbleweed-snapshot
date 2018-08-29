@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 SCRIPT="$(cd "${0%/*}" && echo "$PWD")/${0##*/}"
 SCRIPT="$(readlink -f "$SCRIPT")"
