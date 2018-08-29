@@ -366,5 +366,20 @@ assert_output_process "already snapshotted" 0
 assert_output_lines 1
 echo
 
+snapshot_remove 0 1
+echo '> SNAPSHOT_COUNT_MAX="2"'
+export SNAPSHOT_COUNT_MAX="2"
+snapshot_do
+assert_latest 0
+assert_list 2
+assert_output_process "new" 0
+assert_output_redirect 1
+assert_output_process "created" 0
+assert_output_clean
+assert_output_process "removed" 2 3
+assert_output_root_files
+assert_output_lines 7
+echo
+
 
 test_clean
