@@ -231,7 +231,7 @@ assert_output_root_files()
 assert_output_lines()
 {
   local lines="$(cat "$temp" | wc -l)"
-  if [ $lines -ne $1 ] ; then
+  if [ $1 -ne $lines ] ; then
     echo "> assert_output_lines failed: $1 != $lines (lines in output)"
     exit 1
   fi
