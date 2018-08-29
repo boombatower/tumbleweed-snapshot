@@ -61,6 +61,8 @@ snapshot_create()
     echo "$snapshot: created"
   fi
 
+  snapshot_create_disk "$snapshot_latest"
+
   # Redirect to main mirrors (especially while creating) until next snapshot.
   cp "$SCRIPT_DIR/.htaccess" "$snapshot_latest"
 }
@@ -70,6 +72,16 @@ snapshot_create_rpm_list()
   local snapshot_latest="$1"
   rsync --recursive --list-only --include-from "$RSYNC_INCLUDE" "$snapshot_latest/" | \
     grep -oP "[^ ]+\.rpm$" | sort -n > "$snapshot_latest/rpm.list"
+}
+
+snapshot_create_disk()
+{
+  local snapshot_latest="$1"
+  (
+    cd "$snapshot_latest"
+    cat "rpm.unique.list" | tr '\n' '\0' | du -csb --files0-from=- | tail -n 1
+    wc -l "rpm.unique.list"
+  ) > "$snapshot_latest/disk"
 }
 
 snapshot_clean()
@@ -113,3 +125,8 @@ echo "$snapshot" > "$SNAPSHOT_DIR/list"
 if [ ${#snapshots[@]} -gt 0 ] ; then
   printf '%s\n' "${snapshots[@]}" >> "$SNAPSHOT_DIR/list"
 fi
+
+(
+  du -csb "$SNAPSHOT_DIR" | tail -n 1
+  rsync --recursive --list-only "$SNAPSHOT_DIR/" | wc -l
+) > "$SNAPSHOT_DIR/disk"

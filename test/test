@@ -180,6 +180,16 @@ assert_hardlink()
   echo "> assert_hardlink passed: [$2] $3 from $1 ($snapshot)"
 }
 
+assert_disk()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  if ! grep -q "$2 rpm.unique.list" "$SNAPSHOT_DIR/$snapshot/disk" ; then
+    echo "> assert_disk failed: $2 unique count not found in $1 ($snapshot) disk"
+    exit 1
+  fi
+  echo "> assert_disk passed: valid unique count ($2) in $1 ($snapshot) list"
+}
+
 assert_rpm_list()
 {
   local snapshot="$(snapshot_from_num $1)"
@@ -211,6 +221,8 @@ assert_rpm_list_unique()
   fi
 
   echo "> assert_rpm_list_unique passed: ${rpm[@]} in $2 ($snapshot) unique list"
+
+  assert_disk "$1" "$(( ($# - 1) * 2))"
 }
 
 assert_output_process()
