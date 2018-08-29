@@ -180,6 +180,39 @@ assert_hardlink()
   echo "> assert_hardlink passed: [$2] $3 from $1 ($snapshot)"
 }
 
+assert_rpm_list()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  local path
+  for path in "$SNAPSHOT_DIR/$snapshot/rpm.list" ; do
+    if [ ! -f "$path" ] ; then
+      echo "> assert_rpm_list failed: $rpm not in $1 ($snapshot) unique list"
+      exit 1
+    fi
+  done
+  echo "> assert_rpm_list passed: valid paths in $2 ($snapshot) list"
+}
+
+assert_rpm_list_unique()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  local rpm_unique="$SNAPSHOT_DIR/$snapshot/rpm.unique.list"
+  local rpm
+  for rpm in "${@:2}" ; do
+    if ! grep -q "$rpm" "$rpm_unique" ; then
+      echo "> assert_rpm_list_unique failed: $rpm not in $1 ($snapshot) unique list"
+      exit 1
+    fi
+  done
+
+  if [ $# -eq 1 ] && [[ -s "$rpm_unique" ]] ; then
+    echo "> assert_rpm_list_unique failed: $1 ($snapshot) unique list not empty $rpm_unique"
+    exit 1
+  fi
+
+  echo "> assert_rpm_list_unique passed: ${rpm[@]} in $2 ($snapshot) unique list"
+}
+
 assert_output_process()
 {
   if [ $# -gt 2 ] ; then
@@ -263,6 +296,8 @@ assert_list 1
 assert_hardlink 6 "foo" 1
 assert_hardlink 6 "something-Kubic-does" 0
 assert_hardlink 6 "xyz" 1
+assert_rpm_list 6
+assert_rpm_list_unique 6 "foo" "xyz"
 assert_output_process "new" 6
 assert_output_process "created" 6
 assert_output_clean
@@ -281,6 +316,8 @@ assert_hardlink 4 "foo" 2
 assert_hardlink 4 "linus" 1
 assert_hardlink 4 "something-Kubic-does" 0
 assert_hardlink 4 "xyz" 1
+assert_rpm_list 4
+assert_rpm_list_unique 4 "linus" "xyz"
 assert_output_process "new" 4
 assert_output_redirect 6
 assert_output_process "created" 4
@@ -298,6 +335,8 @@ assert_hardlink 3 "foo" 3
 assert_hardlink 3 "linus" 1
 assert_hardlink 3 "something-Kubic-does" 0
 assert_hardlink 3 "xyz" 2
+assert_rpm_list 3
+assert_rpm_list_unique 3 "linus"
 assert_output_process "new" 3
 assert_output_redirect 4
 assert_output_process "created" 3
@@ -316,6 +355,8 @@ assert_hardlink 2 "foo" 4
 assert_hardlink 2 "linus" 1
 assert_hardlink 2 "something-Kubic-does" 0
 assert_hardlink 2 "xyz" 1
+assert_rpm_list 2
+assert_rpm_list_unique 2 "linus" "xyz"
 assert_output_process "new" 2
 assert_output_redirect 3
 assert_output_process "created" 2
@@ -332,6 +373,8 @@ assert_hardlink 1 "foo" 5
 assert_hardlink 1 "linus" 2
 assert_hardlink 1 "something-Kubic-does" 0
 assert_hardlink 1 "xyz" 2
+assert_rpm_list 1
+assert_rpm_list_unique 1
 assert_output_process "new" 1
 assert_output_redirect 2
 assert_output_process "created" 1

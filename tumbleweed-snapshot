@@ -46,15 +46,30 @@ snapshot_create()
 
     # Hardlink against previous snapshot.
     rsync --include-from "$RSYNC_INCLUDE" -a --delete --link-dest="$(realpath $snapshot_older)" "$SOURCE_DIR/" "$snapshot_latest"
+
+    snapshot_create_rpm_list "$snapshot_latest"
+    comm --check-order -23 "$snapshot_latest/rpm.list" "$snapshot_older/rpm.list" > "$snapshot_latest/rpm.unique.list"
+
     echo "$snapshot: created against ${snapshots[0]}"
   else
     # First snapshot, with no previous base (ie make full copy).
     rsync --include-from "$RSYNC_INCLUDE" -a --delete "$SOURCE_DIR/" "$snapshot_latest"
+
+    snapshot_create_rpm_list "$snapshot_latest"
+    cp "$snapshot_latest/rpm.list" "$snapshot_latest/rpm.unique.list"
+
     echo "$snapshot: created"
   fi
 
   # Redirect to main mirrors (especially while creating) until next snapshot.
   cp "$SCRIPT_DIR/.htaccess" "$snapshot_latest"
+}
+
+snapshot_create_rpm_list()
+{
+  local snapshot_latest="$1"
+  rsync --recursive --list-only --include-from "$RSYNC_INCLUDE" "$snapshot_latest/" | \
+    grep -oP "[^ ]+\.rpm$" | sort -n > "$snapshot_latest/rpm.list"
 }
 
 snapshot_clean()
