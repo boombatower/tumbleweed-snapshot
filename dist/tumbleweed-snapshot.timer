@@ -1,0 +1,9 @@
+[Unit]
+Description=tumbleweed snapshot
+
+[Timer]
+OnCalendar=hourly
+Unit=tumbleweed-snapshot.service
+
+[Install]
+WantedBy=timers.target

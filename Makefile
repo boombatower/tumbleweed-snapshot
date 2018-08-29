@@ -24,6 +24,7 @@ install:
 
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib/systemd/system/
 	$(INSTALL) dist/tumbleweed-snapshot.service $(DESTDIR)$(PREFIX)/lib/systemd/system/
+	$(INSTALL) dist/tumbleweed-snapshot.timer $(DESTDIR)$(PREFIX)/lib/systemd/system/
 
 	$(INSTALL) -d $(DESTDIR)$(CONFIG)/
 	$(INSTALL) dist/tumbleweed-snapshot.conf $(DESTDIR)$(CONFIG)/
