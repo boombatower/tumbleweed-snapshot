@@ -3,22 +3,14 @@
 SCRIPT="$(cd "${0%/*}" && echo "$PWD")/${0##*/}"
 SCRIPT="$(readlink -f "$SCRIPT")"
 SCRIPT_DIR="$(dirname "$SCRIPT")"
-if [ -z ${SOURCE_DIR+x} ] ; then
-  SOURCE_DIR="/srv/www/htdocs/opensuse"
-fi
-if [ -z ${SNAPSHOT_DIR+x} ] ; then
-  SNAPSHOT_DIR="/srv/www/htdocs/snapshot"
-fi
-if [ -z ${RSYNC_INCLUDE+x} ] ; then
-  RSYNC_INCLUDE="$SCRIPT_DIR/rsync/include-tumbleweed.txt"
-fi
-if [ -z ${SNAPSHOT_AGE_MAX+x} ] ; then
-  SNAPSHOT_AGE_MAX="-180 days"
-fi
+
+: ${SOURCE_DIR:="/srv/www/htdocs/opensuse"}
+: ${SNAPSHOT_DIR:="/srv/www/htdocs/snapshot"}
+: ${RSYNC_INCLUDE:="$SCRIPT_DIR/rsync/include-tumbleweed.txt"}
+: ${SNAPSHOT_AGE_MAX:="-180 days"}
+: ${SNAPSHOT_COUNT_MAX:="50"}
+
 SNAPSHOT_OLDEST=$(date -d "$SNAPSHOT_AGE_MAX" +%Y%m%d)
-if [ -z ${SNAPSHOT_COUNT_MAX+x} ] ; then
-  SNAPSHOT_COUNT_MAX=50
-fi
 LOCKFILE_NAME="$SNAPSHOT_DIR/.lock"
 
 snapshot_dir_init()
