@@ -11,7 +11,8 @@ test_setup()
   mkdir -p \
     $SOURCE_DIR/debug/tumbleweed/repo/oss \
     $SOURCE_DIR/tumbleweed/iso \
-    $SOURCE_DIR/tumbleweed/repo/oss
+    $SOURCE_DIR/tumbleweed/repo/oss \
+    $SOURCE_DIR/tumbleweed/repo/oss/media.1
   ln -s ../../debug/tumbleweed/repo/oss $SOURCE_DIR/tumbleweed/repo/debug
 }
 
@@ -27,10 +28,15 @@ changes_generate()
   if [ $# -eq 2 ] ; then
     end=$2
   fi
+  first=1
   for ((i=$1; i<=$end; i++)) ; do
     local snapshot="$(snapshot_from_num $i)"
     touch "$SOURCE_DIR/tumbleweed/iso/Changes.$snapshot.txt"
-    echo "> created $snapshot snapshot"
+    if [ $first -eq 1 ] ; then
+      echo "/ openSUSE $snapshot-0" > "$SOURCE_DIR/tumbleweed/repo/oss/media.1/products"
+      first=0
+    fi
+    echo "> created $i ($snapshot) snapshot"
   done
 }
 
@@ -59,6 +65,14 @@ package_update()
   echo "> removed package-$1-$largest"
   ((largest++))
   package_create $1 $largest
+}
+
+snapshot_remove()
+{
+  local snapshot="$(snapshot_from_num $1)"
+  mv "$SNAPSHOT_DIR/$snapshot/.htaccess" "$SNAPSHOT_DIR/$(snapshot_from_num $2)"
+  rm -rf "$SNAPSHOT_DIR/$snapshot"
+  echo "> removed $1 ($snapshot) snapshot"
 }
 
 snapshot_do()
@@ -166,38 +180,6 @@ assert_hardlink()
   echo "> assert_hardlink passed: [$2] $3 from $1 ($snapshot)"
 }
 
-assert_output_published()
-{
-  local snapshot="$(snapshot_from_num $1)"
-  if ! grep -q "new snapshot $snapshot published" "$temp" ; then
-    echo "> assert_output_published failed: $1 ($snapshot) not published"
-    exit 1
-  fi
-  echo "> assert_output_published passed: $1 ($snapshot)"
-  ((assert_output_counter++))
-}
-
-assert_output_interest()
-{
-  if ! grep -q "$1 snapshots of interest" "$temp" ; then
-    echo "> assert_output_interest failed: $1 of interest not found"
-    exit 1
-  fi
-  echo "> assert_output_interest passed: $1"
-  ((assert_output_counter++))
-}
-
-assert_output_created()
-{
-  local snapshot="$(snapshot_from_num $1)"
-  if ! grep -q "$snapshot: snapshot created and redirect set" "$temp" ; then
-    echo "> assert_output_created failed: $1 ($snapshot) not created"
-    exit 1
-  fi
-  echo "> assert_output_created passed: $1 ($snapshot)"
-  ((assert_output_counter++))
-}
-
 assert_output_process()
 {
   if [ $# -gt 2 ] ; then
@@ -223,6 +205,26 @@ assert_output_redirect()
     exit 1
   fi
   echo "> assert_output_redirect passed: $1 ($snapshot)"
+  ((assert_output_counter++))
+}
+
+assert_output_clean()
+{
+  if ! grep -q "cleaning snapshots" "$temp" ; then
+    echo "> assert_output_clean failed: snapshots not cleaned"
+    exit 1
+  fi
+  echo "> assert_output_clean passed"
+  ((assert_output_counter++))
+}
+
+assert_output_root_files()
+{
+  if ! grep -q "updating lastest and list files..." "$temp" ; then
+    echo "> assert_output_root_files failed: root file not updated"
+    exit 1
+  fi
+  echo "> assert_output_root_files passed"
   ((assert_output_counter++))
 }
 
@@ -261,10 +263,10 @@ assert_list 1
 assert_hardlink 6 "foo" 1
 assert_hardlink 6 "something-Kubic-does" 0
 assert_hardlink 6 "xyz" 1
-assert_output_published 6
-assert_output_interest 2
-assert_output_created 6
-assert_output_process "missing" 7
+assert_output_process "new" 6
+assert_output_process "created" 6
+assert_output_clean
+assert_output_root_files
 assert_output_lines 4
 echo
 
@@ -279,12 +281,12 @@ assert_hardlink 4 "foo" 2
 assert_hardlink 4 "linus" 1
 assert_hardlink 4 "something-Kubic-does" 0
 assert_hardlink 4 "xyz" 1
-assert_output_published 4
-assert_output_interest 4
-assert_output_created 4
-assert_output_process "missing" 7 5
+assert_output_process "new" 4
 assert_output_redirect 6
-assert_output_lines 6
+assert_output_process "created" 4
+assert_output_clean
+assert_output_root_files
+assert_output_lines 5
 echo
 
 changes_generate 3
@@ -296,13 +298,12 @@ assert_hardlink 3 "foo" 3
 assert_hardlink 3 "linus" 1
 assert_hardlink 3 "something-Kubic-does" 0
 assert_hardlink 3 "xyz" 2
-assert_output_published 3
-assert_output_interest 5
-assert_output_created 3
-assert_output_process "missing" 7 5
-assert_output_process "exists" 6
+assert_output_process "new" 3
 assert_output_redirect 4
-assert_output_lines 7
+assert_output_process "created" 3
+assert_output_clean
+assert_output_root_files
+assert_output_lines 5
 echo
 
 changes_generate 2
@@ -315,13 +316,12 @@ assert_hardlink 2 "foo" 4
 assert_hardlink 2 "linus" 1
 assert_hardlink 2 "something-Kubic-does" 0
 assert_hardlink 2 "xyz" 1
-assert_output_published 2
-assert_output_interest 6
-assert_output_created 2
-assert_output_process "missing" 7 5
-assert_output_process "exists" 6 4
+assert_output_process "new" 2
 assert_output_redirect 3
-assert_output_lines 8
+assert_output_process "created" 2
+assert_output_clean
+assert_output_root_files
+assert_output_lines 5
 echo
 
 changes_generate 1
@@ -332,13 +332,12 @@ assert_hardlink 1 "foo" 5
 assert_hardlink 1 "linus" 2
 assert_hardlink 1 "something-Kubic-does" 0
 assert_hardlink 1 "xyz" 2
-assert_output_published 1
-assert_output_interest 7
-assert_output_created 1
-assert_output_process "missing" 7 5
-assert_output_process "exists" 6 4 3
+assert_output_process "new" 1
 assert_output_redirect 2
-assert_output_lines 9
+assert_output_process "created" 1
+assert_output_clean
+assert_output_root_files
+assert_output_lines 5
 echo
 
 # Simulate time passing and check cleanup.
@@ -352,13 +351,14 @@ assert_hardlink 2 "foo" 4
 assert_hardlink 2 "linus" 3
 assert_hardlink 2 "something-Kubic-does" 0
 assert_hardlink 2 "xyz" 3
-assert_output_published 0
-assert_output_interest 4
-assert_output_created 0
-assert_output_process "exists" 3 2
-assert_output_process "removed" 6 4
+assert_output_process "new" 0
 assert_output_redirect 1
-assert_output_lines 8
+assert_output_process "created" 0
+assert_output_process "removed" 6 4
+assert_output_clean
+assert_output_root_files
+assert_output_lines 7
+echo
 
 
 test_clean
