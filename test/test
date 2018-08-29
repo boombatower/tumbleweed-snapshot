@@ -200,7 +200,7 @@ assert_rpm_list()
       exit 1
     fi
   done
-  echo "> assert_rpm_list passed: valid paths in $2 ($snapshot) list"
+  echo "> assert_rpm_list passed: valid paths in $1 ($snapshot) list"
 }
 
 assert_rpm_list_unique()
