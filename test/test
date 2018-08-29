@@ -111,12 +111,16 @@ assert_list()
 {
   local list=$(find "$SNAPSHOT_DIR" -mindepth 1 -maxdepth 1 -type d | grep -oP "\d+$" | sort -r)
   local diff=$(diff -u <(echo "$list") "$SNAPSHOT_DIR/list")
+  local list_count=$(cat "$SNAPSHOT_DIR/list" | wc -l)
   if [ "$diff" != "" ] ; then
     echo "> assert_list failed:"
     echo "$diff"
     exit 1
+  elif [ $1 -ne $list_count ] ; then
+    echo "> assert_list failed: $1 != $list_count"
+    exit 1
   else
-    echo "> assert_list passed: $(cat "$SNAPSHOT_DIR/list" | wc -l) matched"
+    echo "> assert_list passed: $list_count matched"
   fi
 }
 
@@ -253,7 +257,7 @@ package_create "xyz" 123
 changes_generate 6 7
 snapshot_do
 assert_latest 6
-assert_list
+assert_list 1
 assert_hardlink 6 "foo" 1
 assert_hardlink 6 "something-Kubic-does" 0
 assert_hardlink 6 "xyz" 1
@@ -270,7 +274,7 @@ package_create "linus"
 package_update "xyz"
 snapshot_do
 assert_latest 4
-assert_list
+assert_list 2
 assert_hardlink 4 "foo" 2
 assert_hardlink 4 "linus" 1
 assert_hardlink 4 "something-Kubic-does" 0
@@ -287,7 +291,7 @@ changes_generate 3
 package_update "linus"
 snapshot_do
 assert_latest 3
-assert_list
+assert_list 3
 assert_hardlink 3 "foo" 3
 assert_hardlink 3 "linus" 1
 assert_hardlink 3 "something-Kubic-does" 0
@@ -306,7 +310,7 @@ package_update "linus"
 package_update "xyz"
 snapshot_do
 assert_latest 2
-assert_list
+assert_list 4
 assert_hardlink 2 "foo" 4
 assert_hardlink 2 "linus" 1
 assert_hardlink 2 "something-Kubic-does" 0
@@ -323,7 +327,7 @@ echo
 changes_generate 1
 snapshot_do
 assert_latest 1
-assert_list
+assert_list 5
 assert_hardlink 1 "foo" 5
 assert_hardlink 1 "linus" 2
 assert_hardlink 1 "something-Kubic-does" 0
@@ -343,7 +347,7 @@ export SNAPSHOT_AGE_MAX="-3 days"
 changes_generate 0
 snapshot_do
 assert_latest 0
-assert_list
+assert_list 4
 assert_hardlink 2 "foo" 4
 assert_hardlink 2 "linus" 3
 assert_hardlink 2 "something-Kubic-does" 0
