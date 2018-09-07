@@ -109,6 +109,11 @@ if [ ! -d "$SNAPSHOT_DIR" ] || [ ! -f "$SNAPSHOT_DIR/latest" ] ; then
   snapshot_dir_init
 fi
 
+if [ ! -z "$SOURCE_LOCK" ] && [ -f "$SOURCE_LOCK" ] ; then
+  echo "exiting due to source lock at $SOURCE_LOCK"
+  exit
+fi
+
 lockfile -r 0 "$LOCKFILE_NAME" || exit 1
 trap "rm -f \"$LOCKFILE_NAME\"; exit" 0 1 2 3 9 15
 
