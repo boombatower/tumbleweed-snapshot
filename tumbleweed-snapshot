@@ -45,7 +45,7 @@ snapshot_create()
     echo "${snapshots[0]}: redirect removed"
 
     # Hardlink against previous snapshot.
-    rsync --include-from "$RSYNC_INCLUDE" -a --delete --link-dest="$(realpath $snapshot_older)" "$SOURCE_DIR/" "$snapshot_latest"
+    rsync --include-from "$RSYNC_INCLUDE" -a --delete --link-dest "$(realpath $snapshot_older)" "$SOURCE_DIR/" "$snapshot_latest"
 
     snapshot_create_rpm_list "$snapshot_latest"
     comm --check-order -23 "$snapshot_latest/rpm.list" "$snapshot_older/rpm.list" > "$snapshot_latest/rpm.unique.list"
