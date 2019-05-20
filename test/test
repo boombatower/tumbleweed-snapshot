@@ -436,6 +436,13 @@ assert_output_root_files
 assert_output_lines 7
 echo
 
+echo '> SNAPSHOT_REDIRECT_EXPIRE="0"'
+export SNAPSHOT_REDIRECT_EXPIRE="0"
+snapshot_do
+assert_output_process "already snapshotted" 0
+assert_output_redirect 0
+assert_output_lines 2
+echo
 
 test_clean
 echo "all assertions successful"

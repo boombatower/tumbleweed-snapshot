@@ -9,6 +9,7 @@ SCRIPT_DIR="$(dirname "$SCRIPT")"
 : ${RSYNC_INCLUDE:="$SCRIPT_DIR/rsync/include-tumbleweed.txt"}
 : ${SNAPSHOT_AGE_MAX:="-180 days"}
 : ${SNAPSHOT_COUNT_MAX:="50"}
+: ${SNAPSHOT_REDIRECT_EXPIRE:="360"}
 
 SNAPSHOT_OLDEST=$(date -d "$SNAPSHOT_AGE_MAX" +%Y%m%d)
 LOCKFILE_NAME="$SNAPSHOT_DIR/.lock"
@@ -25,12 +26,22 @@ snapshot_check()
   echo -n "$snapshot: "
   if [ "$snapshot" == "${snapshots[0]}" ] ; then
     echo "already snapshotted"
+    snapshot_check_redirect
     exit
   elif [ "$snapshot" == "" ] ; then
     echo "empty snapshot, exit."
     exit 1
   fi
   echo "new"
+}
+
+snapshot_check_redirect()
+{
+  local snapshot_latest="$SNAPSHOT_DIR/$snapshot"
+  if test $(find "$snapshot_latest/.htaccess" -mmin +"$SNAPSHOT_REDIRECT_EXPIRE") ; then
+    rm "$snapshot_latest/.htaccess"
+    echo "$snapshot: redirect removed"
+  fi
 }
 
 snapshot_create()
@@ -41,7 +52,9 @@ snapshot_create()
 
   if [ ${#snapshots[@]} -gt 0 ] && [ -d "$snapshot_older" ] ; then
     # Remove redirect and serve directly.
-    rm "$snapshot_older/.htaccess"
+    if [ -f "$snapshot_older/.htaccess" ] ; then
+      rm "$snapshot_older/.htaccess"
+    fi
     echo "${snapshots[0]}: redirect removed"
 
     # Hardlink against previous snapshot.
